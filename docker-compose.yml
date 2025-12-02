@@ -1,0 +1,78 @@
+services:
+  # PostgreSQL база данных
+  postgres:
+    image: postgres:15-alpine
+    container_name: todo-postgres
+    environment:
+      POSTGRES_USER: myuser
+      POSTGRES_PASSWORD: mypassword
+      POSTGRES_DB: mydb
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U myuser -d mydb"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  # Миграции Django (отдельный сервис, выполняется один раз)
+  migrations:
+    build: .
+    container_name: todo-migrations
+    command: >
+      sh -c "echo 'Ожидание базы данных...' &&
+             sleep 5 &&
+             python manage.py migrate --noinput &&
+             python manage.py collectstatic --noinput"
+    environment:
+      DATABASE_URL: postgresql://myuser:mypassword@postgres:5432/mydb
+      DEBUG: "True"
+      SECRET_KEY: "django-insecure-test-key-123"
+      ALLOWED_HOSTS: "*"
+    volumes:
+      - static_volume:/app/staticfiles
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"  # Выполняется только один раз
+
+  # Django бэкенд (API)
+  api:
+    build: .
+    container_name: todo-api
+    command: >
+      sh -c "echo 'Запуск Django...' &&
+             python manage.py runserver 0.0.0.0:8000"
+    environment:
+      DATABASE_URL: postgresql://myuser:mypassword@postgres:5432/mydb
+      DEBUG: "True"
+      SECRET_KEY: "django-insecure-test-key-123"
+      ALLOWED_HOSTS: "localhost,127.0.0.1,api,front"
+    ports:
+      - "8000:8000"
+    volumes:
+      - .:/app
+      - static_volume:/app/staticfiles
+    depends_on:
+      migrations:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+  # Angular фронтенд
+  front:
+    build:
+      context: ./todolist-frontend
+      dockerfile: docker/Dockerfile
+    container_name: todo-front
+    ports:
+      - "80:80"
+    depends_on:
+      - api
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  static_volume:

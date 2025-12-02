@@ -1,0 +1,18 @@
+[tool.poetry]
+name = "todolist"
+version = "0.1.0"
+description = ""
+authors = ["Leo <foxes97@mail.ru>"]
+
+[tool.poetry.dependencies]
+python = "^3.12"
+Django = "^5.2"
+django-environ = "^0.12"
+psycopg2-binary = "^2.9"
+django-cors-headers = "^4.9"
+
+[tool.poetry.group.dev.dependencies]
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
