@@ -9,45 +9,86 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout
+    - name: Checkout code
       uses: actions/checkout@v3
 
-    - name: Debug - Show key info
-      run: |
-        echo "Key length in chars: ${#SSH_KEY}"
-        echo "First 50 chars: ${SSH_KEY:0:50}"
-        echo "Last 50 chars: ${SSH_KEY: -50}"
-      env:
-        SSH_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
-
-    - name: Setup SSH properly
+    - name: Setup SSH
       run: |
         mkdir -p ~/.ssh
-        # Сохраняем ключ правильно
-        echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/github_key
-        # Удаляем возможные лишние пробелы/переносы
-        sed -i 's/\r$//' ~/.ssh/github_key
-        sed -i '/^$/d' ~/.ssh/github_key
-        chmod 600 ~/.ssh/github_key
-        
-        # Добавляем хост
-        ssh-keyscan -H 89.169.156.104 >> ~/.ssh/known_hosts
-        chmod 600 ~/.ssh/known_hosts
-        
-        echo "Key content (first 3 lines):"
-        head -3 ~/.ssh/github_key
-        echo "Key content (last 3 lines):"
-        tail -3 ~/.ssh/github_key
+        echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
+        chmod 600 ~/.ssh/deploy_key
+        ssh-keyscan -H ${{ secrets.SERVER_HOST }} >> ~/.ssh/known_hosts
 
-    - name: Test SSH connection
+    - name: Clean server directory
       run: |
-        ssh -v -i ~/.ssh/github_key -o StrictHostKeyChecking=no ubuntu@89.169.156.104 "echo '✅ SSH test successful!'"
-
-    - name: Simple deploy
-      run: |
-        ssh -i ~/.ssh/github_key -o StrictHostKeyChecking=no ubuntu@89.169.156.104 "
+        ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no ubuntu@${{ secrets.SERVER_HOST }} "
           cd /home/ubuntu
-          echo 'Current directory: \$(pwd)'
-          echo 'Files in todo-app:'
-          ls -la todo-app/ 2>/dev/null || echo 'No todo-app directory'
+          rm -rf todo-app/*
+          mkdir -p todo-app
+        "
+
+    - name: Copy ALL project files
+      run: |
+        # Копируем ВСЕ файлы из репозитория
+        rsync -avz -e "ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no" \
+          --exclude='.git' \
+          --exclude='.github' \
+          --exclude='.idea' \
+          --exclude='__pycache__' \
+          --exclude='*.pyc' \
+          --exclude='.venv' \
+          --exclude='node_modules' \
+          ./ \
+          ubuntu@${{ secrets.SERVER_HOST }}:/home/ubuntu/todo-app/
+
+    - name: Create .env file on server
+      run: |
+        ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no ubuntu@${{ secrets.SERVER_HOST }} "
+          cd /home/ubuntu/todo-app
+          cat > .env << 'EOF'
+          DEBUG=True
+          SECRET_KEY='${{ secrets.DJANGO_SECRET_KEY }}'
+          ALLOWED_HOSTS=localhost,127.0.0.1,api,frontend,${{ secrets.SERVER_HOST }}
+          POSTGRES_USER=myuser
+          POSTGRES_PASSWORD='${{ secrets.POSTGRES_PASSWORD }}'
+          POSTGRES_DB=todolist_db
+          SOCIAL_AUTH_VK_OAUTH2_KEY=54378867
+          SOCIAL_AUTH_VK_OAUTH2_SECRET='${{ secrets.VK_SECRET }}'
+          BASE_URL=http://${{ secrets.SERVER_HOST }}
+          SOCIAL_AUTH_VK_OAUTH2_REDIRECT_URI=http://${{ secrets.SERVER_HOST }}/oauth/complete/vk-oauth2/
+          STATIC_ROOT=/app/staticfiles
+          EOF
+        "
+
+    - name: Deploy application
+      run: |
+        ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no ubuntu@${{ secrets.SERVER_HOST }} "
+          cd /home/ubuntu/todo-app
+          
+          echo '🚀 Building and starting containers...'
+          
+          # Останавливаем старые контейнеры
+          docker-compose down 2>/dev/null || true
+          
+          # Удаляем старые образы чтобы не копились
+          docker system prune -f 2>/dev/null || true
+          
+          # Запускаем
+          docker-compose build --no-cache
+          docker-compose up -d
+          
+          echo '✅ Containers started!'
+        "
+
+    - name: Check deployment status
+      run: |
+        ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no ubuntu@${{ secrets.SERVER_HOST }} "
+          echo '=== Container Status ==='
+          docker-compose ps 2>/dev/null || echo 'docker-compose not found'
+          
+          echo ''
+          echo '=== Checking services ==='
+          sleep 5
+          curl -f http://localhost:80 && echo 'Frontend: OK' || echo 'Frontend: FAILED'
+          curl -f http://localhost:8000/core/signup && echo 'Backend: OK' || echo 'Backend: FAILED'
         "
