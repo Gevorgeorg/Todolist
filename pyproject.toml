@@ -6,10 +6,15 @@ authors = ["Leo <foxes97@mail.ru>"]
 
 [tool.poetry.dependencies]
 python = "^3.12"
-Django = "^5.2"
-django-environ = "^0.12"
+django = "^5.0"
+django-environ = "^0.11.0"
+djangorestframework = "^3.15"
+django-cors-headers = "^4.3"
+djangorestframework-simplejwt = "^5.3"
+djoser = "^2.2"
+django-filter = "^24.3"
+drf-spectacular = "^0.27"
 psycopg2-binary = "^2.9"
-django-cors-headers = "^4.9"
 
 [tool.poetry.group.dev.dependencies]
 

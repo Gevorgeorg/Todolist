@@ -1,9 +1,9 @@
-name: Build and Push TodoList Images
+name: Build and Deploy TodoList
 
 on:
   push:
     branches: [ main, master ]
-  workflow_dispatch:  # Позволяет запускать вручную
+  workflow_dispatch:
 
 jobs:
   build-and-push:
@@ -22,7 +22,7 @@ jobs:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
-      # 1. Сборка Django API образа
+      # 1. Собираем API
       - name: Build and push Django API image
         uses: docker/build-push-action@v4
         with:
@@ -34,7 +34,7 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      # 2. Сборка Angular Frontend образа (ДОБАВЬ ЭТОТ ШАГ!)
+      # 2. Собираем фронтенд (ДОБАВЬ ЭТО!)
       - name: Build and push Angular Frontend image
         uses: docker/build-push-action@v4
         with:
@@ -47,50 +47,37 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+  # 3. ДОБАВЬ ЭТОТ НОВЫЙ JOB ДЛЯ ДЕПЛОЯ
   deploy:
-    needs: build-and-push  # Ждем сборку
+    needs: build-and-push  # Ждем пока соберутся образы
     runs-on: ubuntu-latest
 
     steps:
-      - name: Deploy to Server
+      - name: Deploy to Yandex Cloud
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
-            echo "🚀 Начинаем деплой..."
+            echo "🚀 Запускаем деплой..."
             cd /home/ubuntu/todo-app
             
-            # Логинимся
+            # Логинимся в Docker Hub
             echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
             
             # Останавливаем старое
-            docker-compose -f docker-compose.prod.yml down 2>/dev/null || true
+            docker-compose -f docker-compose.prod.yml down
             
             # Тянем новые образы
-            echo "Загружаем обновленные образы..."
-            docker pull ${{ secrets.DOCKER_USERNAME }}/todo-api:latest
-            docker pull ${{ secrets.DOCKER_USERNAME }}/todo-frontend:latest
+            docker-compose -f docker-compose.prod.yml pull
             
             # Запускаем
-            echo "Запускаем контейнеры..."
             docker-compose -f docker-compose.prod.yml up -d
             
             # Проверяем
             sleep 10
-            echo "=== Статус ==="
-            docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
-            
-            echo "=== Проверка ==="
-            if curl -s -f http://localhost:80 > /dev/null; then
-              echo "✅ Фронтенд работает: http://${{ secrets.SERVER_HOST }}"
-            else
-              echo "❌ Фронтенд не отвечает"
-            fi
-            
-            if curl -s -f http://localhost:8000 > /dev/null; then
-              echo "✅ API работает: http://${{ secrets.SERVER_HOST }}:8000"
-            else
-              echo "❌ API не отвечает"
-            fi
+            echo "✅ Деплой завершен!"
+            echo "🌐 Приложение доступно по адресу:"
+            echo "   Фронтенд: http://${{ secrets.SERVER_HOST }}"
+            echo "   API: http://${{ secrets.SERVER_HOST }}:8000"

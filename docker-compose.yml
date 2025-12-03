@@ -1,3 +1,5 @@
+version: '3.8'
+
 services:
   # PostgreSQL база данных
   postgres:
@@ -6,38 +8,37 @@ services:
     environment:
       POSTGRES_USER: myuser
       POSTGRES_PASSWORD: mypassword
-      POSTGRES_DB: mydb
+      POSTGRES_DB: todolist_db
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U myuser -d mydb"]
+      test: ["CMD-SHELL", "pg_isready -U myuser -d todolist_db"]
       interval: 10s
       timeout: 5s
       retries: 5
       start_period: 30s
 
-  # Миграции Django (отдельный сервис, выполняется один раз)
+  # Миграции Django
   migrations:
     build: .
     container_name: todo-migrations
     command: >
       sh -c "echo 'Ожидание базы данных...' &&
              sleep 5 &&
-             python manage.py migrate --noinput &&
-             python manage.py collectstatic --noinput"
+             python manage.py makemigrations --noinput &&
+             python manage.py migrate --noinput"
     environment:
-      DATABASE_URL: postgresql://myuser:mypassword@postgres:5432/mydb
+      DATABASE_URL: postgresql://myuser:mypassword@postgres:5432/todolist_db  # ← Исправлено
       DEBUG: "True"
-      SECRET_KEY: "django-insecure-test-key-123"
+      SECRET_KEY: "django-insecure-2o$ljx625l+g4460=qs_8mrhly3@yxtull^zlk@rvay4=o6cl"
       ALLOWED_HOSTS: "*"
-    volumes:
-      - static_volume:/app/staticfiles
+      STATIC_ROOT: "/app/staticfiles"  # ← Добавлено
     depends_on:
       postgres:
         condition: service_healthy
-    restart: "no"  # Выполняется только один раз
+    restart: "no"
 
   # Django бэкенд (API)
   api:
@@ -45,20 +46,22 @@ services:
     container_name: todo-api
     command: >
       sh -c "echo 'Запуск Django...' &&
+             python manage.py collectstatic --noinput &&
              python manage.py runserver 0.0.0.0:8000"
     environment:
-      DATABASE_URL: postgresql://myuser:mypassword@postgres:5432/mydb
+      DATABASE_URL: postgresql://myuser:mypassword@postgres:5432/todolist_db  # ← Исправлено
       DEBUG: "True"
-      SECRET_KEY: "django-insecure-test-key-123"
+      SECRET_KEY: "django-insecure-2o$ljx625l+g4460=qs_8mrhly3@yxtull^zlk@rvay4=o6cl"
       ALLOWED_HOSTS: "localhost,127.0.0.1,api,front"
+      STATIC_ROOT: "/app/staticfiles"  # ← Добавлено
     ports:
       - "8000:8000"
     volumes:
       - .:/app
       - static_volume:/app/staticfiles
     depends_on:
-      migrations:
-        condition: service_completed_successfully
+      - migrations
+      - postgres
     restart: unless-stopped
 
   # Angular фронтенд
