@@ -1,9 +1,15 @@
 from rest_framework import serializers
 from django.contrib.auth.password_validation import validate_password
+from django.contrib.auth import authenticate
 from .models import User
 
 
-class UserSerializer(serializers.ModelSerializer):
+class LoginSerializer(serializers.Serializer):
+    username = serializers.CharField(required=True)
+    password = serializers.CharField(required=True, write_only=True)
+
+
+class SignupSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, required=True, validators=[validate_password])
     password_repeat = serializers.CharField(write_only=True, required=True)
 
@@ -19,7 +25,7 @@ class UserSerializer(serializers.ModelSerializer):
 
     def validate(self, attrs):
         if attrs['password'] != attrs['password_repeat']:
-            raise serializers.ValidationError({"password": "Password fields didn't match."})
+            raise serializers.ValidationError({"password_repeat": "Passwords do not match."})
 
         email = attrs.get('email')
         if User.objects.filter(email=email).exists():
@@ -33,8 +39,39 @@ class UserSerializer(serializers.ModelSerializer):
         return user
 
 
-class UserProfileSerializer(serializers.ModelSerializer):
+class ProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ['id', 'username', 'email', 'first_name', 'last_name']
-        read_only_fields = ['id', 'email']  # email нельзя менять
+        fields = ['id', 'username', 'first_name', 'last_name', 'email']
+        read_only_fields = ['id']
+
+
+class ProfileUpdateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ['username', 'first_name', 'last_name', 'email']
+        extra_kwargs = {
+            'username': {
+                'validators': [User.username_validator],
+                'min_length': 1,
+                'max_length': 150
+            },
+        }
+
+    def validate_email(self, value):
+        # Проверяем уникальность email при обновлении профиля
+        user = self.context['request'].user
+        if User.objects.filter(email=value).exclude(id=user.id).exists():
+            raise serializers.ValidationError("A user with this email already exists.")
+        return value
+
+
+class PasswordUpdateSerializer(serializers.Serializer):
+    old_password = serializers.CharField(required=True, write_only=True)
+    new_password = serializers.CharField(required=True, write_only=True, validators=[validate_password])
+
+    def validate_old_password(self, value):
+        user = self.context['request'].user
+        if not user.check_password(value):
+            raise serializers.ValidationError("Old password is incorrect.")
+        return value

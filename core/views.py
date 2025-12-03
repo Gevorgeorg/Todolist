@@ -1,138 +1,179 @@
-from rest_framework import viewsets, permissions, status
-from rest_framework.decorators import action
-from rest_framework.response import Response
-from django.contrib.auth import get_user_model
+from rest_framework import generics, permissions, status
+from rest_framework.generics import RetrieveUpdateDestroyAPIView
 from rest_framework.views import APIView
-from rest_framework_simplejwt.tokens import RefreshToken
-from .serializers import UserSerializer, UserProfileSerializer
+from rest_framework.response import Response
+from django.contrib.auth import authenticate, login, logout, get_user_model
+from django.contrib.auth.models import update_last_login
+from .serializers import (
+    LoginSerializer,
+    SignupSerializer,
+    ProfileSerializer,
+    ProfileUpdateSerializer,
+    PasswordUpdateSerializer
+)
 
 User = get_user_model()
 
 
-class UserViewSet(viewsets.ModelViewSet):
-    queryset = User.objects.all()
+class LoginView(APIView):
+    permission_classes = [permissions.AllowAny]
 
-    def get_serializer_class(self):
-        if self.action == 'create':
-            return UserSerializer
-        return UserProfileSerializer
+    def post(self, request):
+        # ВАЖНО: эта строка отключает CSRF
+        setattr(request, '_dont_enforce_csrf_checks', True)
 
-    def get_permissions(self):
-        if self.action == 'create':
-            permission_classes = [permissions.AllowAny]
-        else:
-            permission_classes = [permissions.IsAuthenticated]
-        return [permission() for permission in permission_classes]
-
-    def get_object(self):
-        if self.action in ['retrieve', 'update', 'partial_update', 'destroy']:
-            return self.request.user
-        return super().get_object()
-
-    @action(detail=False, methods=['get'])
-    def me(self, request):
-        if not request.user.is_authenticated:
-            return Response({'error': 'Not authenticated'}, status=401)
-
-        serializer = self.get_serializer(request.user)
-        return Response(serializer.data)
-
-    @action(detail=False, methods=['post'], permission_classes=[permissions.AllowAny])
-    def register(self, request):
-        """Альтернативный эндпоинт для регистрации"""
-        serializer = UserSerializer(data=request.data)
+        serializer = LoginSerializer(data=request.data)
         if serializer.is_valid():
-            user = serializer.save()
+            username = serializer.validated_data['username']
+            password = serializer.validated_data['password']
 
-            # Создаем JWT токены
-            refresh = RefreshToken.for_user(user)
+            user = authenticate(request, username=username, password=password)
 
-            return Response({
-                'user': UserProfileSerializer(user).data,
-                'refresh': str(refresh),
-                'access': str(refresh.access_token),
-            }, status=status.HTTP_201_CREATED)
+            if user:
+                login(request, user)
+                update_last_login(None, user)
+
+                return Response({
+                    'username': user.username,
+                    'password': password,
+                }, status=status.HTTP_201_CREATED)
+
+            return Response(
+                {"error": "Invalid credentials"},
+                status=status.HTTP_401_UNAUTHORIZED
+            )
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+
+class ProfileView(RetrieveUpdateDestroyAPIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        setattr(request, '_dont_enforce_csrf_checks', True)
+        user = request.user
+        serializer = ProfileSerializer(user)
+        return Response(serializer.data)
+
+    def put(self, request):
+        setattr(request, '_dont_enforce_csrf_checks', True)
+        user = request.user
+        serializer = ProfileUpdateSerializer(
+            user,
+            data=request.data,
+            context={'request': request}
+        )
+
+        if serializer.is_valid():
+            serializer.save()
+            return Response(ProfileSerializer(user).data)
+
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def patch(self, request):
+        setattr(request, '_dont_enforce_csrf_checks', True)
+        user = request.user
+        serializer = ProfileUpdateSerializer(
+            user,
+            data=request.data,
+            partial=True,
+            context={'request': request}
+        )
+
+        if serializer.is_valid():
+            serializer.save()
+            return Response(ProfileSerializer(user).data)
+
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def delete(self, request):
+        setattr(request, '_dont_enforce_csrf_checks', True)
+        logout(request)
+        return Response({"detail": "Successfully logged out."}, status=status.HTTP_200_OK)
+
+
+class SignupView(generics.CreateAPIView):
+    permission_classes = [permissions.AllowAny]
+    serializer_class = SignupSerializer
+
     def create(self, request, *args, **kwargs):
-        """Стандартный create (регистрация) с возвратом токенов"""
+        # ВАЖНО: эта строка отключает CSRF
+        setattr(request, '_dont_enforce_csrf_checks', True)
+
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         user = serializer.save()
 
-        # Создаем JWT токены
-        refresh = RefreshToken.for_user(user)
+        login(request, user, backend='django.contrib.auth.backends.ModelBackend')
 
         return Response({
-            'user': UserProfileSerializer(user).data,
-            'refresh': str(refresh),
-            'access': str(refresh.access_token),
+            'id': user.id,
+            'username': user.username,
+            'first_name': user.first_name,
+            'last_name': user.last_name,
+            'email': user.email,
+            'password': request.data.get('password', ''),
+            'password_repeat': request.data.get('password_repeat', ''),
         }, status=status.HTTP_201_CREATED)
 
 
-class APISignUpView(APIView):
-    permission_classes = [permissions.AllowAny]
+class UpdatePasswordView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
 
-    def post(self, request):
-        # Просто перенаправляем на существующий метод
-        viewset = UserViewSet()
-        viewset.request = request
-        viewset.format_kwarg = None
-        return viewset.create(request)
+    def put(self, request):
+        return self._update_password(request)
 
+    def patch(self, request):
+        return self._update_password(request)
 
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework import status
-from django.contrib.auth import authenticate
-from rest_framework_simplejwt.tokens import RefreshToken
+    def _update_password(self, request):
+        setattr(request, '_dont_enforce_csrf_checks', True)
 
+        serializer = PasswordUpdateSerializer(
+            data=request.data,
+            context={'request': request}
+        )
 
-class CustomLoginView(APIView):
-    def post(self, request):
-        username = request.data.get('username')
-        password = request.data.get('password')
+        if serializer.is_valid():
+            user = request.user
+            user.set_password(serializer.validated_data['new_password'])
+            user.save()
 
-        user = authenticate(username=username, password=password)
-
-        if user:
-            refresh = RefreshToken.for_user(user)
+            login(request, user)
 
             return Response({
-                'success': True,
-                'access_token': str(refresh.access_token),  # ← Явно access_token
-                'refresh_token': str(refresh),  # ← Явно refresh_token
-                'user': {
-                    'id': user.id,
-                    'username': user.username,
-                    'email': user.email
-                }
-            })
+                'old_password': serializer.validated_data['old_password'],
+                'new_password': serializer.validated_data['new_password']
+            }, status=status.HTTP_200_OK)
 
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class SocialAuthSuccessView(APIView):
+    """Обработка успешной авторизации через соцсеть"""
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request):
+        if request.user.is_authenticated:
+            from .serializers import ProfileSerializer
+            return Response({
+                'success': True,
+                'user': ProfileSerializer(request.user).data,
+                'message': 'Successfully authenticated with social network'
+            })
         return Response({
             'success': False,
-            'error': 'Invalid credentials'
-        }, status=status.HTTP_401_UNAUTHORIZED)
+            'error': 'User not authenticated'
+        }, status=401)
 
 
-from rest_framework_simplejwt.views import TokenObtainPairView
-from rest_framework.response import Response
+class SocialAuthErrorView(APIView):
+    """Обработка ошибки авторизации через соцсеть"""
+    permission_classes = [permissions.AllowAny]
 
-
-class CustomTokenObtainPairView(TokenObtainPairView):
-    def post(self, request, *args, **kwargs):
-        response = super().post(request, *args, **kwargs)
-
-        # Переименовываем поля для фронта
-        data = {
-            'access_token': response.data.get('access'),
-            'refresh_token': response.data.get('refresh'),
-            'success': True,
-            'user': {
-                # Можно добавить базовую информацию о пользователе
-                'username': request.user.username if request.user.is_authenticated else None
-            }
-        }
-
-        return Response(data)
+    def get(self, request):
+        return Response({
+            'success': False,
+            'error': 'Social authentication failed',
+            'message': request.GET.get('message', 'Unknown error')
+        }, status=400)

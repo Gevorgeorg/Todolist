@@ -1,59 +1,39 @@
 version: '3.8'
 
 services:
-  # PostgreSQL база данных
-  postgres:
-    image: postgres:15-alpine
-    container_name: todo-postgres
-    environment:
-      POSTGRES_USER: myuser
-      POSTGRES_PASSWORD: mypassword
-      POSTGRES_DB: todolist_db
+  frontend:
+    image: sermalenk/skypro-front:lesson-38
+    restart: always
+    depends_on:
+      api:
+        condition: service_started
     ports:
-      - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U myuser -d todolist_db"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 30s
+      - "80:80"
+    networks:
+      - todolist-net
 
-  # Миграции Django
   migrations:
     build: .
     container_name: todo-migrations
     command: >
       sh -c "echo 'Ожидание базы данных...' &&
-             sleep 5 &&
+             sleep 10 &&
              python manage.py makemigrations --noinput &&
              python manage.py migrate --noinput"
-    environment:
-      DATABASE_URL: postgresql://myuser:mypassword@postgres:5432/todolist_db  # ← Исправлено
-      DEBUG: "True"
-      SECRET_KEY: "django-insecure-2o$ljx625l+g4460=qs_8mrhly3@yxtull^zlk@rvay4=o6cl"
-      ALLOWED_HOSTS: "*"
-      STATIC_ROOT: "/app/staticfiles"  # ← Добавлено
+    env_file:
+      - .env
     depends_on:
-      postgres:
+      db:
         condition: service_healthy
     restart: "no"
+    networks:
+      - todolist-net
 
-  # Django бэкенд (API)
   api:
     build: .
-    container_name: todo-api
-    command: >
-      sh -c "echo 'Запуск Django...' &&
-             python manage.py collectstatic --noinput &&
-             python manage.py runserver 0.0.0.0:8000"
-    environment:
-      DATABASE_URL: postgresql://myuser:mypassword@postgres:5432/todolist_db  # ← Исправлено
-      DEBUG: "True"
-      SECRET_KEY: "django-insecure-2o$ljx625l+g4460=qs_8mrhly3@yxtull^zlk@rvay4=o6cl"
-      ALLOWED_HOSTS: "localhost,127.0.0.1,api,front"
-      STATIC_ROOT: "/app/staticfiles"  # ← Добавлено
+    restart: always
+    env_file:
+      - .env
     ports:
       - "8000:8000"
     volumes:
@@ -61,20 +41,36 @@ services:
       - static_volume:/app/staticfiles
     depends_on:
       - migrations
-      - postgres
-    restart: unless-stopped
+      - db
+    container_name: todolist_app
+    command: >
+      sh -c "python manage.py collectstatic --noinput &&
+             python manage.py runserver 0.0.0.0:8000"
+    networks:
+      - todolist-net
 
-  # Angular фронтенд
-  front:
-    build:
-      context: ./todolist-frontend
-      dockerfile: docker/Dockerfile
-    container_name: todo-front
-    ports:
-      - "80:80"
-    depends_on:
-      - api
-    restart: unless-stopped
+  db:
+    image: postgres:15-alpine
+    container_name: todo-postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    restart: always
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - todolist-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+networks:
+  todolist-net:
+    driver: bridge
 
 volumes:
   postgres_data:
