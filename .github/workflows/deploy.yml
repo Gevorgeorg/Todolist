@@ -3,108 +3,56 @@ name: Deploy TodoList
 on:
   push:
     branches: [ main ]
-  workflow_dispatch:
 
 jobs:
-  build-and-push:
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v2
-
-      - name: Login to Docker Hub
-        uses: docker/login-action@v2
-        with:
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
-
-      - name: Build and push API image
-        uses: docker/build-push-action@v4
-        with:
-          context: .
-          push: true
-          tags: |
-            ${{ secrets.DOCKER_USERNAME }}/todo-api:latest
-            ${{ secrets.DOCKER_USERNAME }}/todo-api:${{ github.sha }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
   deploy:
-    needs: build-and-push
     runs-on: ubuntu-latest
 
     steps:
-      - name: Deploy to server
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.SERVER_HOST }}
-          username: ${{ secrets.SERVER_USER }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          script: |
-            echo "🚀 Starting deploy..."
-            cd /home/ubuntu/todo-app
-            
-            # Pull new API image
-            docker pull ${{ secrets.DOCKER_USERNAME }}/todo-api:${{ github.sha }}
-            
-            # Update docker-compose.yml with new image
-            sed -i "s|build: \.|image: ${{ secrets.DOCKER_USERNAME }}/todo-api:${{ github.sha }}|g" docker-compose.yml
-            
-            # Copy or update .env file
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Deploy to server
+      uses: appleboy/ssh-action@v1.0.3
+      with:
+        host: ${{ secrets.SERVER_HOST }}
+        username: ${{ secrets.SERVER_USER }}
+        key: ${{ secrets.SSH_PRIVATE_KEY }}
+        script: |
+          echo "🚀 Starting deploy..."
+          cd /home/ubuntu/todo-app
+          
+          # Копируем ТОЛЬКО нужные файлы
+          cp -f ${{ github.workspace }}/docker-compose.yml .
+          cp -f ${{ github.workspace }}/Dockerfile .
+          cp -f ${{ github.workspace }}/requirements.txt .
+          cp -f ${{ github.workspace }}/manage.py .
+          cp -rf ${{ github.workspace }}/core .
+          cp -rf ${{ github.workspace }}/goals .
+          cp -rf ${{ github.workspace }}/bot .
+          cp -rf ${{ github.workspace }}/Todolist .
+          
+          # Создаем .env если нет
+          if [ ! -f .env ]; then
             cat > .env << 'EOF'
-            DEBUG=True
-            SECRET_KEY=${{ secrets.DJANGO_SECRET_KEY }}
-            ALLOWED_HOSTS=localhost,127.0.0.1,api,frontend,${{ secrets.SERVER_HOST }}
-            POSTGRES_USER=myuser
-            POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}
-            POSTGRES_DB=todolist_db
-            SOCIAL_AUTH_VK_OAUTH2_KEY=54378867
-            SOCIAL_AUTH_VK_OAUTH2_SECRET=KEc0ffXNVcHCshgzx69F
-            BASE_URL=http://${{ secrets.SERVER_HOST }}
-            SOCIAL_AUTH_VK_OAUTH2_REDIRECT_URI=http://${{ secrets.SERVER_HOST }}/oauth/complete/vk-oauth2/
-            SOCIAL_AUTH_LOGIN_REDIRECT_URL=http://${{ secrets.SERVER_HOST }}/core/social-success/
-            SOCIAL_AUTH_LOGIN_ERROR_URL=http://${{ secrets.SERVER_HOST }}/core/social-error/
-            VK_REDIRECT_URI=http://${{ secrets.SERVER_HOST }}/core/vk-callback/
-            STATIC_ROOT=/app/staticfiles
-            EOF
-            
-            # Copy nginx.conf if not exists
-            if [ ! -f nginx.conf ]; then
-              cat > nginx.conf << 'NGINXEOF'
-            server {
-                listen 80;
-                server_name localhost;
-                
-                location / {
-                    root /usr/share/nginx/html;
-                    index index.html index.htm;
-                    try_files $uri $uri/ /index.html;
-                }
-                
-                location /api/ {
-                    proxy_pass http://api:8000/;
-                    proxy_set_header Host $host;
-                    proxy_set_header X-Real-IP $remote_addr;
-                }
-                
-                location ~ ^/(core|goals|bot|oauth)/ {
-                    proxy_pass http://api:8000;
-                    proxy_set_header Host $host;
-                    proxy_set_header X-Real-IP $remote_addr;
-                }
-            }
-            NGINXEOF
-            fi
-            
-            # Stop old containers
-            docker-compose down
-            
-            # Start new ones
-            docker-compose up -d
-            
-            echo "✅ Deploy completed!"
-            echo "🌐 App available at: http://${{ secrets.SERVER_HOST }}"
+          DEBUG=True
+          SECRET_KEY=${{ secrets.DJANGO_SECRET_KEY }}
+          ALLOWED_HOSTS=localhost,127.0.0.1,api,frontend,${{ secrets.SERVER_HOST }}
+          POSTGRES_USER=myuser
+          POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}
+          POSTGRES_DB=todolist_db
+          SOCIAL_AUTH_VK_OAUTH2_KEY=54378867
+          SOCIAL_AUTH_VK_OAUTH2_SECRET=${{ secrets.VK_SECRET }}
+          BASE_URL=http://${{ secrets.SERVER_HOST }}
+          SOCIAL_AUTH_VK_OAUTH2_REDIRECT_URI=http://${{ secrets.SERVER_HOST }}/oauth/complete/vk-oauth2/
+          STATIC_ROOT=/app/staticfiles
+          EOF
+          fi
+          
+          # Останавливаем и запускаем заново
+          docker-compose down
+          docker-compose build
+          docker-compose up -d
+          
+          echo "✅ Deploy completed!"
+          echo "🌐 App available at: http://${{ secrets.SERVER_HOST }}"
