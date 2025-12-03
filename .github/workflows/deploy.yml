@@ -1,4 +1,4 @@
-name: Deploy TodoList
+name: Deploy
 
 on:
   push:
@@ -12,47 +12,15 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v3
 
+    - name: Test step
+      run: echo "Workflow is running!"
+
     - name: Deploy to server
       uses: appleboy/ssh-action@v1.0.3
       with:
-        host: ${{ secrets.SERVER_HOST }}
-        username: ${{ secrets.SERVER_USER }}
+        host: 89.169.156.104
+        username: ubuntu
         key: ${{ secrets.SSH_PRIVATE_KEY }}
         script: |
-          echo "🚀 Starting deploy..."
-          cd /home/ubuntu/todo-app
-          
-          # Копируем ТОЛЬКО нужные файлы
-          cp -f ${{ github.workspace }}/docker-compose.yml .
-          cp -f ${{ github.workspace }}/Dockerfile .
-          cp -f ${{ github.workspace }}/requirements.txt .
-          cp -f ${{ github.workspace }}/manage.py .
-          cp -rf ${{ github.workspace }}/core .
-          cp -rf ${{ github.workspace }}/goals .
-          cp -rf ${{ github.workspace }}/bot .
-          cp -rf ${{ github.workspace }}/Todolist .
-          
-          # Создаем .env если нет
-          if [ ! -f .env ]; then
-            cat > .env << 'EOF'
-          DEBUG=True
-          SECRET_KEY=${{ secrets.DJANGO_SECRET_KEY }}
-          ALLOWED_HOSTS=localhost,127.0.0.1,api,frontend,${{ secrets.SERVER_HOST }}
-          POSTGRES_USER=myuser
-          POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}
-          POSTGRES_DB=todolist_db
-          SOCIAL_AUTH_VK_OAUTH2_KEY=54378867
-          SOCIAL_AUTH_VK_OAUTH2_SECRET=${{ secrets.VK_SECRET }}
-          BASE_URL=http://${{ secrets.SERVER_HOST }}
-          SOCIAL_AUTH_VK_OAUTH2_REDIRECT_URI=http://${{ secrets.SERVER_HOST }}/oauth/complete/vk-oauth2/
-          STATIC_ROOT=/app/staticfiles
-          EOF
-          fi
-          
-          # Останавливаем и запускаем заново
-          docker-compose down
-          docker-compose build
-          docker-compose up -d
-          
-          echo "✅ Deploy completed!"
-          echo "🌐 App available at: http://${{ secrets.SERVER_HOST }}"
+          echo "Connected to server"
+          echo "Current directory: $(pwd)"
