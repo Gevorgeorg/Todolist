@@ -26,6 +26,15 @@ class GoalCategorySerializer(serializers.ModelSerializer):
 
 class GoalSerializer(serializers.ModelSerializer):
     user = serializers.HiddenField(default=serializers.CurrentUserDefault())
+    updated = serializers.DateTimeField(source='updated_at', read_only=True)
+    due_date = serializers.DateField(
+        source='deadline',  # мапим на поле deadline в модели
+        format='%Y-%m-%d',
+        required=False,
+        allow_null=True,
+        input_formats=['%Y-%m-%d', '%d.%m.%Y', '%m/%d/%Y']
+    )
+
 
     class Meta:
         model = Goal
@@ -103,8 +112,7 @@ class BoardSerializer(serializers.ModelSerializer):
         read_only_fields = ("id", "created", "updated")
 
     def update(self, instance, validated_data):
-        print("Validated data:", validated_data)
-        print("Request data:", self.context['request'].data)
+
 
         owner = self.context.get('request').user
 

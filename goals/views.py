@@ -1,5 +1,6 @@
 from rest_framework.generics import CreateAPIView, ListAPIView, RetrieveUpdateDestroyAPIView
 from rest_framework import permissions, filters
+from rest_framework.pagination import PageNumberPagination, LimitOffsetPagination
 
 from goals.filters import GoalFilter, GoalCommentFilter
 from goals.serializers import GoalCategorySerializer, GoalSerializer, GoalCommentSerializer, BoardSerializer, \
@@ -18,6 +19,7 @@ class GoalCategoryCreateView(CreateAPIView):
     permission_classes = [permissions.IsAuthenticated]
     serializer_class = GoalCategorySerializer
 
+
     def perform_create(self, serializer):
         # Просто сохраняем - права проверяются в validate_board сериализатора
         serializer.save(user=self.request.user)
@@ -26,6 +28,8 @@ class GoalCategoryCreateView(CreateAPIView):
 class GoalCategoryListView(ListAPIView):
     permission_classes = [permissions.IsAuthenticated]
     serializer_class = GoalCategorySerializer
+    pagination_class = LimitOffsetPagination
+
 
     filter_backends = [filters.OrderingFilter, filters.SearchFilter]
     ordering_fields = ["title", "created_at"]
@@ -71,6 +75,7 @@ class GoalCreateView(CreateAPIView):
 class GoalListView(ListAPIView):
     serializer_class = GoalSerializer
     permission_classes = [permissions.IsAuthenticated]
+    pagination_class = LimitOffsetPagination
 
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_class = GoalFilter
@@ -81,17 +86,33 @@ class GoalListView(ListAPIView):
     def get_queryset(self):
         user = self.request.user
 
-        user_boards = BoardParticipant.objects.filter(
-            user=user,
-            board__is_deleted=False
-        ).values_list('board_id', flat=True)
+        # Если есть фильтр по категории - используем его
+        category_filter = self.request.GET.get('category__in') or self.request.GET.get('category')
+        if category_filter:
+            # Фронтенд сам указал категории
+            category_ids = [int(cid) for cid in category_filter.split(',') if cid.isdigit()]
+            queryset = Goal.objects.filter(category_id__in=category_ids)
+        else:
+            # По умолчанию - цели всех категорий пользователя
+            user_boards = BoardParticipant.objects.filter(
+                user=user,
+                board__is_deleted=False
+            ).values_list('board_id', flat=True)
 
-        user_categories = GoalCategory.objects.filter(
-            board_id__in=user_boards,
-            is_deleted=False
-        ).values_list('id', flat=True)
+            user_categories = GoalCategory.objects.filter(
+                board_id__in=user_boards,
+                is_deleted=False
+            ).values_list('id', flat=True)
 
-        return Goal.objects.filter(category_id__in=user_categories)
+            queryset = Goal.objects.filter(category_id__in=user_categories)
+
+        # Дополнительная фильтрация
+        queryset = queryset.filter(
+            category__is_deleted=False,
+            category__board__is_deleted=False
+        )
+
+        return queryset
 
 
 class GoalDetailView(RetrieveUpdateDestroyAPIView):
@@ -102,6 +123,8 @@ class GoalDetailView(RetrieveUpdateDestroyAPIView):
         return Goal.objects.all()
 
 
+
+
 class GoalCommentCreateView(CreateAPIView):
     serializer_class = GoalCommentSerializer
     permission_classes = [permissions.IsAuthenticated, BoardPermission]
@@ -110,6 +133,7 @@ class GoalCommentCreateView(CreateAPIView):
 class GoalCommentListView(ListAPIView):
     serializer_class = GoalCommentSerializer
     permission_classes = [permissions.IsAuthenticated, BoardPermission]
+    pagination_class = LimitOffsetPagination
 
     filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
     filterset_class = GoalCommentFilter
@@ -156,6 +180,8 @@ class BoardListView(ListAPIView):
     """Список досок пользователя"""
     permission_classes = [permissions.IsAuthenticated]
     serializer_class = BoardListSerializer
+    pagination_class = LimitOffsetPagination
+
 
     # Добавляем фильтрацию и сортировку
     filter_backends = [

@@ -11,21 +11,42 @@ from django.db import models
 from django_filters import rest_framework
 
 
-
-
 class GoalFilter(django_filters.FilterSet):
-    categories = django_filters.BaseInFilter(field_name='category__id', lookup_expr='in')
-    priorities = django_filters.BaseInFilter(field_name='priority', lookup_expr='in')
-    statuses = django_filters.BaseInFilter(field_name='status', lookup_expr='in')
-    deadline_from = django_filters.DateFilter(field_name='deadline', lookup_expr='gte')
-    deadline_to = django_filters.DateFilter(field_name='deadline', lookup_expr='lte')
-    # Можно добавить и эти, если хочешь точный поиск:
-    title = django_filters.CharFilter(field_name='title', lookup_expr='icontains')
-    description = django_filters.CharFilter(field_name='description', lookup_expr='icontains')
+    category = django_filters.NumberFilter(field_name='category__id')
+    category__in = django_filters.BaseInFilter(field_name='category__id', lookup_expr='in')
+
+    priority = django_filters.NumberFilter(field_name='priority')
+    priority__in = django_filters.BaseInFilter(field_name='priority', lookup_expr='in')
+
+    status = django_filters.NumberFilter(field_name='status')
+    status__in = django_filters.BaseInFilter(field_name='status', lookup_expr='in')
+
+    due_date__lte = django_filters.DateFilter(
+        field_name='deadline',  # ← мапим на deadline в модели
+        lookup_expr='gte',
+        input_formats=['%Y-%m-%d', '%d.%m.%Y']
+    )
+
+    due_date__gte = django_filters.DateFilter(
+        field_name='deadline',  # ← мапим на deadline в модели
+        lookup_expr='lte',
+        input_formats=['%Y-%m-%d', '%d.%m.%Y']
+    )
+
+    search = django_filters.CharFilter(method='filter_search')
+
+    board = django_filters.NumberFilter(field_name='category__board__id')
 
     class Meta:
         model = Goal
-        fields = []
+        fields = ['category', 'priority', 'status', 'board']
+
+    def filter_search(self, queryset, name, value):
+        """Поиск по title и description"""
+        return queryset.filter(
+            models.Q(title__icontains=value) |
+            models.Q(description__icontains=value)
+        )
 
 
 class GoalCommentFilter(django_filters.FilterSet):
