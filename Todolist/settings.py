@@ -31,7 +31,7 @@ DATABASES = {
 
 ALLOWED_HOSTS = ["*"]  # Для разработки
 
-AUTH_USER_MODEL = 'core.User'
+
 
 # Application definition
 
@@ -48,7 +48,10 @@ INSTALLED_APPS = [
     'drf_spectacular',
     'social_django',
     'core',
+    'goals',
 ]
+
+AUTH_USER_MODEL = 'core.User'
 
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
@@ -116,6 +119,10 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 CORS_ALLOW_ALL_ORIGINS = True
 CORS_ALLOW_CREDENTIALS = True
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:4200",
+    "http://127.0.0.1:4200",
+]
 
 STATIC_URL = 'static/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')  # ← Добавь эту строку!
@@ -134,7 +141,9 @@ REST_FRAMEWORK = {
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.IsAuthenticated',
     ],
-}
+    'DEFAULT_FILTER_BACKENDS': [
+    'django_filters.rest_framework.DjangoFilterBackend',
+],}
 
 # Documentation
 SPECTACULAR_SETTINGS = {
@@ -180,6 +189,7 @@ SOCIAL_AUTH_VK_OAUTH2_PROFILE_EXTRA_PARAMS = {
 
 VK_APP_ID = '54379750'  # Твой App ID из VK
 VK_APP_SECRET = 'R3GFWeZqkBl4X5rEKlHt'
+
 
 VK_API_VERSION = '5.199'
 VK_REDIRECT_URI = f'{BASE_URL}/core/vk-callback/'
