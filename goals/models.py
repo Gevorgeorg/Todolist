@@ -7,8 +7,8 @@ class BaseDateTime(models.Model):
     class Meta:
         abstract = True
 
-    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Дата создания")
-    updated_at = models.DateTimeField(auto_now=True, verbose_name="Дата обновления")
+    created = models.DateTimeField(auto_now_add=True, verbose_name="Дата создания")
+    updated = models.DateTimeField(auto_now=True, verbose_name="Дата обновления")
 
     def save(self, *args, **kwargs):
         if not self.id:  # Когда модель только создается – у нее нет id
@@ -94,7 +94,7 @@ class Goal(BaseDateTime):
     priority = models.PositiveSmallIntegerField(
         verbose_name="Приоритет", choices=Priority.choices, default=Priority.medium
     )
-    deadline = models.DateField(verbose_name="Дедлайн", null=True, blank=True)
+    due_date = models.DateField(verbose_name="Дедлайн", null=True, blank=True)
 
     def __str__(self):
         return f"{self.title} ({self.get_status_display()})"
@@ -107,7 +107,8 @@ class Goal(BaseDateTime):
 class GoalComment(BaseDateTime):
     text = models.TextField(verbose_name="Текст")
     user = models.ForeignKey(User, verbose_name="Автор", on_delete=models.PROTECT)
-    goal = models.ForeignKey(Goal, verbose_name="Цель", on_delete=models.CASCADE)
+    goal = models.ForeignKey(Goal, verbose_name="Цель", on_delete=models.CASCADE,
+        related_name='comments')
 
     class Meta:
         verbose_name = "Комментарий"

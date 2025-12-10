@@ -5,6 +5,7 @@ from .models import GoalCategory, Goal, GoalComment, Board, BoardParticipant
 from core.models import User
 from core.serializers import ProfileSerializer
 
+
 class GoalCategorySerializer(serializers.ModelSerializer):
     user = serializers.HiddenField(default=serializers.CurrentUserDefault())
     board = serializers.PrimaryKeyRelatedField(
@@ -15,59 +16,104 @@ class GoalCategorySerializer(serializers.ModelSerializer):
     class Meta:
         model = GoalCategory
         fields = "__all__"
-        read_only_fields = ("id", "created_at", "updated_at", "user")
+        read_only_fields = ("id", "created", "updated", "user")
 
     def validate_board(self, board):
-        # Проверяем только базовые вещи, НЕ права!
         if board.is_deleted:
             raise serializers.ValidationError("Доска удалена")
+
+        # ПРОВЕРЯЕМ ПРАВА!
+        request = self.context.get('request')
+        if request:
+            user = request.user
+
+            # Проверяем что пользователь владелец или редактор
+            has_permission = BoardParticipant.objects.filter(
+                user=user,
+                board=board,
+                role__in=[BoardParticipant.Role.owner, BoardParticipant.Role.writer],
+                board__is_deleted=False
+            ).exists()
+
+            if not has_permission:
+                raise serializers.ValidationError(
+                    "Только владелец или редактор могут создавать категории"
+                )
+
         return board
+
+
+class GoalCommentCreateSerializer(serializers.ModelSerializer):
+    """Простой сериализатор для создания комментариев"""
+
+    class Meta:
+        model = GoalComment
+        fields = ['text', 'goal']
+
+    def create(self, validated_data):
+        """Добавляем пользователя из запроса"""
+        request = self.context.get('request')
+        if request and request.user.is_authenticated:
+            validated_data['user'] = request.user
+        return super().create(validated_data)
+
+class GoalCommentSerializer(serializers.ModelSerializer):
+    user_username = serializers.CharField(source='user.username', read_only=True)
+    user = serializers.SerializerMethodField()
+
+    class Meta:
+        model = GoalComment
+        fields = ["id", "text", "user", "user_username", "goal", "created", "updated"]
+        read_only_fields = ("id", "created", "updated", "user", "user_username")
+
+    def get_user(self, obj):
+        """Возвращаем объект пользователя с id и username"""
+        return {
+            "id": obj.user.id,
+            "username": obj.user.username
+        }
+
+
 
 
 class GoalSerializer(serializers.ModelSerializer):
     user = serializers.HiddenField(default=serializers.CurrentUserDefault())
-    updated = serializers.DateTimeField(source='updated_at', read_only=True)
-    due_date = serializers.DateField(
-        source='deadline',  # мапим на поле deadline в модели
-        format='%Y-%m-%d',
-        required=False,
-        allow_null=True,
-        input_formats=['%Y-%m-%d', '%d.%m.%Y', '%m/%d/%Y']
-    )
 
+    comments = GoalCommentSerializer(
+        many=True,
+        read_only=True
+    )
 
     class Meta:
         model = Goal
         fields = "__all__"
-        read_only_fields = ("id", "created_at", "updated_at", "user")
+        read_only_fields = ("id", "created", "updated", "user")
 
     def validate_category(self, category):
-        # Проверяем только базовые вещи, НЕ права!
         if category.is_deleted:
             raise serializers.ValidationError("Категория удалена")
         if category.board.is_deleted:
             raise serializers.ValidationError("Доска категории удалена")
-        return category
 
-
-class GoalCommentSerializer(serializers.ModelSerializer):
-    user = serializers.HiddenField(default=serializers.CurrentUserDefault())
-    user_username = serializers.CharField(source='user.username', read_only=True)
-
-    class Meta:
-        model = GoalComment
-        fields = ["id", "text", "user", "user_username", "goal", "created_at", "updated_at"]
-        read_only_fields = ("id", "created_at", "updated_at", "user", "user_username")
-
-    def validate_goal(self, value):
-        """Проверяем, что цель принадлежит текущему пользователю"""
+        # ПРОВЕРЯЕМ ПРАВА!
         request = self.context.get('request')
-        if not request:
-            raise serializers.ValidationError("Request not found in context")
+        if request:
+            user = request.user
 
-        if value.user != request.user:
-            raise serializers.ValidationError("Эта цель не принадлежит вам.")
-        return value
+            # Проверяем что пользователь владелец или редактор
+            has_permission = BoardParticipant.objects.filter(
+                user=user,
+                board=category.board,
+                role__in=[BoardParticipant.Role.owner, BoardParticipant.Role.writer],
+                board__is_deleted=False
+            ).exists()
+
+            if not has_permission:
+                raise serializers.ValidationError(
+                    "Только владелец или редактор могут создавать цели"
+                )
+
+        return category
 
 
 class BoardCreateSerializer(serializers.ModelSerializer):
@@ -112,7 +158,6 @@ class BoardSerializer(serializers.ModelSerializer):
         read_only_fields = ("id", "created", "updated")
 
     def update(self, instance, validated_data):
-
 
         owner = self.context.get('request').user
 

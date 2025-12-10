@@ -17,7 +17,8 @@ import environ
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 env = environ.Env(
-    DEBUG=(bool, False)
+    DEBUG=(bool, False),
+    SECRET_KEY=(str, 'your-secret-key-here'),
 )
 
 environ.Env.read_env(os.path.join(BASE_DIR, '.env'))
@@ -32,8 +33,9 @@ DATABASES = {
 ALLOWED_HOSTS = ["*"]  # Для разработки
 
 
+TELEGRAM_BOT_TOKEN=env('TELEGRAM_BOT_TOKEN')
+TG_CHAT_ID=env('TG_CHAT_ID')
 
-# Application definition
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -49,6 +51,7 @@ INSTALLED_APPS = [
     'social_django',
     'core',
     'goals',
+    'tgbot',
 ]
 
 AUTH_USER_MODEL = 'core.User'
@@ -120,7 +123,6 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 CORS_ALLOW_ALL_ORIGINS = True
 CORS_ALLOW_CREDENTIALS = True
 
-
 STATIC_URL = 'static/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')  # ← Добавь эту строку!
 
@@ -138,8 +140,8 @@ REST_FRAMEWORK = {
         'rest_framework.permissions.IsAuthenticated',
     ],
     'DEFAULT_FILTER_BACKENDS': [
-    'django_filters.rest_framework.DjangoFilterBackend',
-],}
+        'django_filters.rest_framework.DjangoFilterBackend',
+    ], 'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',}
 
 # Documentation
 SPECTACULAR_SETTINGS = {
@@ -186,7 +188,6 @@ SOCIAL_AUTH_VK_OAUTH2_PROFILE_EXTRA_PARAMS = {
 VK_APP_ID = '54379750'  # Твой App ID из VK
 VK_APP_SECRET = 'R3GFWeZqkBl4X5rEKlHt'
 
-
 VK_API_VERSION = '5.199'
 VK_REDIRECT_URI = f'{BASE_URL}/core/vk-callback/'
 # Настройки social auth
@@ -208,7 +209,6 @@ SOCIAL_AUTH_PIPELINE = (
     'social_core.pipeline.social_auth.associate_user',
     'social_core.pipeline.social_auth.load_extra_data',
     'social_core.pipeline.user.user_details',
-    'core.pipeline.get_avatar',  # Кастомный конвейер для аватара
 )
 
 # Дополнительные настройки

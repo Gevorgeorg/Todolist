@@ -1,14 +1,9 @@
-from django.shortcuts import render
-from goals.serializers import GoalCategorySerializer
 
-from rest_framework.generics import CreateAPIView,ListAPIView, RetrieveUpdateDestroyAPIView
-from rest_framework import permissions
-from rest_framework import permissions, filters
 from goals.models import GoalCategory, Goal, GoalComment
 
 import django_filters
 from django.db import models
-from django_filters import rest_framework
+
 
 
 class GoalFilter(django_filters.FilterSet):
@@ -22,13 +17,13 @@ class GoalFilter(django_filters.FilterSet):
     status__in = django_filters.BaseInFilter(field_name='status', lookup_expr='in')
 
     due_date__lte = django_filters.DateFilter(
-        field_name='deadline',  # ← мапим на deadline в модели
+        field_name='due_date',  # ← мапим на deadline в модели
         lookup_expr='gte',
         input_formats=['%Y-%m-%d', '%d.%m.%Y']
     )
 
     due_date__gte = django_filters.DateFilter(
-        field_name='deadline',  # ← мапим на deadline в модели
+        field_name='due_date',  # ← мапим на deadline в модели
         lookup_expr='lte',
         input_formats=['%Y-%m-%d', '%d.%m.%Y']
     )

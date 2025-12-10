@@ -11,14 +11,14 @@ class SignupSerializer(serializers.ModelSerializer):
         model = User
         fields = ['id', 'username', 'email', 'first_name', 'last_name', 'password', 'password_repeat']
 
-    def validate(self, attrs):
+    def validate(self, attrs: dict) -> dict:
         if attrs.get('password') != attrs.get('password_repeat'):
             raise serializers.ValidationError({"password_repeat": "Пароли не совпадают"})
         return attrs
 
-    def create(self, validated_data):
+    def create(self, validated_data: dict) -> User:
         validated_data.pop('password_repeat')
-        user = User.objects.create_user(**validated_data)
+        user: User = User.objects.create_user(**validated_data)
         return user
 
 
@@ -30,11 +30,11 @@ class ProfileSerializer(serializers.ModelSerializer):
 
 
 class PasswordUpdateSerializer(serializers.Serializer):
-    old_password = serializers.CharField(required=True, write_only=True)
-    new_password = serializers.CharField(required=True, write_only=True, validators=[validate_password])
+    old_password = serializers.CharField(required=True, write_only=True, verbose_name="старый пароль")
+    new_password = serializers.CharField(required=True, write_only=True, validators=[validate_password], verbose_name="новый пароль")
 
-    def validate_old_password(self, value):
-        user = self.context['request'].user
+    def validate_old_password(self, value: str) -> str:
+        user: User = self.context['request'].user
         if not user.check_password(value):
             raise serializers.ValidationError("Старый пароль некорректен")
         return value

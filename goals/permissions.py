@@ -1,15 +1,11 @@
 from rest_framework import permissions
 
-from goals.models import BoardParticipant, Board
+from goals.models import BoardParticipant, Board, GoalComment
 
 
 class BoardPermission(permissions.BasePermission):
     """
     Универсальный пермишен для работы с досками
-
-    Проверяет:
-    1. Для GET, HEAD, OPTIONS - что пользователь участник доски
-    2. Для POST, PUT, PATCH, DELETE - что пользователь владелец или редактор
     """
 
     def has_object_permission(self, request, view, obj):
@@ -18,10 +14,14 @@ class BoardPermission(permissions.BasePermission):
         if not board:
             return False
 
-        # Определяем требуемые роли
+        # Если объект - комментарий, особые правила
+        if isinstance(obj, GoalComment):
+            return self._check_comment_permission(request, obj, board)
+
+        # Для остальных объектов
         if request.method in permissions.SAFE_METHODS:
             # Для просмотра - любая роль
-            required_roles = None  # значит любая роль
+            required_roles = None
         else:
             # Для изменения - только владелец или редактор
             required_roles = [
@@ -29,22 +29,51 @@ class BoardPermission(permissions.BasePermission):
                 BoardParticipant.Role.writer
             ]
 
-        # Выполняем проверку
         return self._check_board_permission(request.user, board, required_roles)
+
+    def _check_comment_permission(self, request, comment, board):
+        """Проверка прав для комментариев"""
+        user = request.user
+
+        # 1. Всегда разрешаем GET, HEAD, OPTIONS (просмотр)
+        if request.method in permissions.SAFE_METHODS:
+            # Любой участник доски может просматривать комментарии
+            return self._check_board_permission(user, board, required_roles=None)
+
+        # 2. Для PUT, PATCH, DELETE (изменение/удаление):
+        #    - Автор комментария может
+        #    - Владелец или редактор доски может
+        #    - Читатель - не может
+
+        # Автор может всегда (даже если он читатель)
+        if comment.user == user:
+            return True
+
+        # Владелец или редактор может
+        required_roles = [
+            BoardParticipant.Role.owner,
+            BoardParticipant.Role.writer
+        ]
+
+        return self._check_board_permission(user, board, required_roles)
 
     def _get_board_from_obj(self, obj):
         """Получает объект доски из разных типов объектов"""
-        # Вариант 1: объект - GoalCategory (у него есть board)
+        # Вариант 1: объект - GoalComment (комментарий)
+        if isinstance(obj, GoalComment):
+            return obj.goal.category.board  # ← ДОБАВИЛИ ЭТО!
+
+        # Вариант 2: объект - GoalCategory (у него есть board)
         if hasattr(obj, 'board'):
             return obj.board  # GoalCategory.board
 
-        # Вариант 2: объект - Goal (у него есть category)
+        # Вариант 3: объект - Goal (у него есть category)
         elif hasattr(obj, 'category'):
             # Проверяем что у категории есть board
             if hasattr(obj.category, 'board'):
                 return obj.category.board  # Goal.category.board
 
-        # Вариант 3: объект - сама Board
+        # Вариант 4: объект - сама Board
         elif isinstance(obj, Board):  # Проверяем тип объекта
             return obj  # Сам объект и есть доска
 

@@ -5,17 +5,17 @@ from goals.models import GoalCategory, Goal, GoalComment, Board, BoardParticipan
 
 @admin.register(Board)
 class BoardAdmin(admin.ModelAdmin):
-    list_display = ('title', 'created_at', 'updated_at', 'is_deleted')
-    list_filter = ('is_deleted', 'created_at')
+    list_display = ('title', 'created', 'updated', 'is_deleted')
+    list_filter = ('is_deleted', 'created')
     search_fields = ('title',)
-    readonly_fields = ('created_at', 'updated_at')
+    readonly_fields = ('created', 'updated')
     list_per_page = 20
 
 
 @admin.register(BoardParticipant)
 class BoardParticipantAdmin(admin.ModelAdmin):
-    list_display = ('board', 'user', 'role_display', 'created_at')
-    list_filter = ('role', 'board', 'created_at')
+    list_display = ('board', 'user', 'role_display', 'created')
+    list_filter = ('role', 'board', 'created')
     search_fields = ('user__username', 'board__title')
     list_per_page = 20
 
@@ -25,33 +25,32 @@ class BoardParticipantAdmin(admin.ModelAdmin):
     role_display.short_description = 'Роль'
 
 
-
 @admin.register(GoalCategory)
 class GoalCategoryAdmin(admin.ModelAdmin):
-    list_display = ('title', 'user', 'board', 'created_at', 'is_deleted')
-    list_filter = ('is_deleted', 'board', 'created_at')
+    list_display = ('title', 'user', 'board', 'created', 'is_deleted')
+    list_filter = ('is_deleted', 'board', 'created')
     search_fields = ('title', 'user__username', 'board__title')
-    readonly_fields = ('created_at', 'updated_at')
+    readonly_fields = ('created', 'updated')
     list_per_page = 20
 
 
 @admin.register(Goal)
 class GoalAdmin(admin.ModelAdmin):
     list_display = ('title', 'user', 'category', 'status', 'priority',
-                    'deadline', 'created_at')
-    list_filter = ('status', 'priority', 'category', 'created_at')
+                    'due_date', 'created')
+    list_filter = ('status', 'priority', 'category', 'created')
     search_fields = ('title', 'description', 'user__username', 'category__title')
-    readonly_fields = ('created_at', 'updated_at')
+    readonly_fields = ('created', 'updated')
     list_per_page = 20
     fieldsets = (
         ('Основная информация', {
             'fields': ('title', 'description', 'user', 'category')
         }),
         ('Детали', {
-            'fields': ('status', 'priority', 'deadline')
+            'fields': ('status', 'priority', 'due_date')
         }),
         ('Даты', {
-            'fields': ('created_at', 'updated_at'),
+            'fields': ('created', 'updated'),
             'classes': ('collapse',)
         }),
     )
@@ -59,10 +58,10 @@ class GoalAdmin(admin.ModelAdmin):
 
 @admin.register(GoalComment)
 class GoalCommentAdmin(admin.ModelAdmin):
-    list_display = ('short_text', 'user', 'goal', 'created_at')
-    list_filter = ('created_at', 'user')
+    list_display = ('short_text', 'user', 'goal', 'created')
+    list_filter = ('created', 'user')
     search_fields = ('text', 'user__username', 'goal__title')
-    readonly_fields = ('created_at', 'updated_at')
+    readonly_fields = ('created', 'updated')
     list_per_page = 20
 
     def short_text(self, obj):

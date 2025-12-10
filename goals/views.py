@@ -4,7 +4,7 @@ from rest_framework.pagination import PageNumberPagination, LimitOffsetPaginatio
 
 from goals.filters import GoalFilter, GoalCommentFilter
 from goals.serializers import GoalCategorySerializer, GoalSerializer, GoalCommentSerializer, BoardSerializer, \
-    BoardListSerializer, BoardCreateSerializer
+    BoardListSerializer, BoardCreateSerializer, GoalCommentCreateSerializer
 from goals.permissions import BoardPermission
 from goals.models import BoardParticipant, GoalCategory, Goal, GoalComment
 from django.db import models, transaction
@@ -12,8 +12,6 @@ from django_filters.rest_framework import DjangoFilterBackend
 
 from goals.models import Status, Board, Priority
 
-import logging
-logger = logging.getLogger(__name__)
 
 class GoalCategoryCreateView(CreateAPIView):
     permission_classes = [permissions.IsAuthenticated]
@@ -32,7 +30,7 @@ class GoalCategoryListView(ListAPIView):
 
 
     filter_backends = [filters.OrderingFilter, filters.SearchFilter]
-    ordering_fields = ["title", "created_at"]
+    ordering_fields = ["title", "created"]
     ordering = ["title"]
     search_fields = ["title"]
 
@@ -57,8 +55,8 @@ class GoalCategoryView(RetrieveUpdateDestroyAPIView):
         return GoalCategory.objects.filter(is_deleted=False)
 
     def perform_destroy(self, instance):
-        Goal.objects.filter(category__board=instance).update(
-            status=Status.archived.value  # или просто Status.archived
+        Goal.objects.filter(category__board=instance.board).update(
+            status=Status.archived.value
         )
         instance.is_deleted = True
         instance.save()
@@ -79,8 +77,8 @@ class GoalListView(ListAPIView):
 
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_class = GoalFilter
-    ordering_fields = ["title", "created_at", "deadline", "priority"]
-    ordering = ["-created_at"]
+    ordering_fields = ["title", "created", "due_date", "priority"]
+    ordering = ["-created"]
     search_fields = ["title", "description"]
 
     def get_queryset(self):
@@ -126,7 +124,7 @@ class GoalDetailView(RetrieveUpdateDestroyAPIView):
 
 
 class GoalCommentCreateView(CreateAPIView):
-    serializer_class = GoalCommentSerializer
+    serializer_class = GoalCommentCreateSerializer
     permission_classes = [permissions.IsAuthenticated, BoardPermission]
 
 
@@ -137,11 +135,23 @@ class GoalCommentListView(ListAPIView):
 
     filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
     filterset_class = GoalCommentFilter
-    ordering_fields = ["created_at", "updated_at"]
-    ordering = ["-created_at"]  # новые комментарии сначала
+    ordering_fields = ["created", "updated"]
+    ordering = ["-created","updated"]  # новые комментарии сначала
 
     def get_queryset(self):
-        return GoalComment.objects.filter(user=self.request.user)
+        """Оптимизированная версия с prefetch_related"""
+        user = self.request.user
+
+        # Используем prefetch_related для оптимизации
+        queryset = GoalComment.objects.filter(
+            goal__category__board__participants__user=user,
+            goal__category__board__is_deleted=False,
+            goal__category__is_deleted=False
+        ).select_related(
+            'user', 'goal', 'goal__category', 'goal__category__board'
+        ).distinct()
+
+        return queryset
 
 
 class GoalCommentDetailView(RetrieveUpdateDestroyAPIView):
@@ -149,7 +159,15 @@ class GoalCommentDetailView(RetrieveUpdateDestroyAPIView):
     permission_classes = [permissions.IsAuthenticated, BoardPermission]
 
     def get_queryset(self):
-        return GoalComment.objects.filter(user=self.request.user)
+        """Все комментарии доступные пользователю"""
+        user = self.request.user
+
+        # Все комментарии в досках где пользователь участник
+        return GoalComment.objects.filter(
+            goal__category__board__participants__user=user,
+            goal__category__board__is_deleted=False,
+            goal__category__is_deleted=False
+        ).select_related('user', 'goal').distinct()
 
 
 class BoardView(RetrieveUpdateDestroyAPIView):
@@ -157,7 +175,7 @@ class BoardView(RetrieveUpdateDestroyAPIView):
     permission_classes = [permissions.IsAuthenticated, BoardPermission]
 
     def update(self, request, *args, **kwargs):
-        logger.info(f"Update called with args: {args}, kwargs: {kwargs}")
+
         return super().update(request, *args, **kwargs)
 
     def get_queryset(self):
@@ -188,7 +206,7 @@ class BoardListView(ListAPIView):
         DjangoFilterBackend,
         filters.OrderingFilter,
     ]
-    ordering_fields = ['title', 'created_at']
+    ordering_fields = ['title', 'created']
     ordering = ['title']  # сортировка по умолчанию по названию
 
     def get_queryset(self):
