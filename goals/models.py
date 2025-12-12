@@ -1,5 +1,5 @@
 from django.db import models
-from django.utils import timezone
+
 from core.models import User
 
 
@@ -10,20 +10,17 @@ class BaseDateTime(models.Model):
     created = models.DateTimeField(auto_now_add=True, verbose_name="Дата создания")
     updated = models.DateTimeField(auto_now=True, verbose_name="Дата обновления")
 
-    def save(self, *args, **kwargs):
-        if not self.id:  # Когда модель только создается – у нее нет id
-            self.created = timezone.now()
-        self.updated = timezone.now()  # Каждый раз, когда вызывается save, проставляем свежую дату обновления
-        return super().save(*args, **kwargs)
-
 
 class Board(BaseDateTime):
+    title = models.CharField(max_length=255, verbose_name="Название")
+    is_deleted = models.BooleanField(default=False, verbose_name="Удалена")
+
+    def __str__(self):
+        return f"доска {self.title}"
+
     class Meta:
         verbose_name = "Доска"
         verbose_name_plural = "Доски"
-
-    title = models.CharField(verbose_name="Название", max_length=255)
-    is_deleted = models.BooleanField(verbose_name="Удалена", default=False)
 
 
 class BoardParticipant(BaseDateTime):
@@ -69,11 +66,10 @@ class Priority(models.IntegerChoices):
 
 
 class GoalCategory(BaseDateTime):
-    title = models.CharField(verbose_name="Название", max_length=155)
-    user = models.ForeignKey(User, verbose_name="Автор", on_delete=models.PROTECT)
-    is_deleted = models.BooleanField(verbose_name="Удалена", default=False)
-    board = models.ForeignKey(
-        Board, verbose_name="Доска", on_delete=models.PROTECT, related_name="categories")
+    title = models.CharField(max_length=155, verbose_name="Название")
+    user = models.ForeignKey(User, on_delete=models.PROTECT, verbose_name="Автор")
+    is_deleted = models.BooleanField(default=False, verbose_name="Удалена")
+    board = models.ForeignKey(Board, on_delete=models.PROTECT, related_name="categories", verbose_name="Доска")
 
     def __str__(self):
         return f" категория {self.title} пользователя {self.user}"
@@ -84,20 +80,20 @@ class GoalCategory(BaseDateTime):
 
 
 class Goal(BaseDateTime):
-    title = models.CharField(verbose_name="Название", max_length=155)
-    description = models.TextField(verbose_name="Описание", blank=True, default="")
-    user = models.ForeignKey(User, verbose_name="Автор", on_delete=models.PROTECT)
-    category = models.ForeignKey(GoalCategory, verbose_name="Категория", on_delete=models.PROTECT)
+    title = models.CharField(max_length=155, verbose_name="Название", )
+    description = models.TextField(blank=True, default="", verbose_name="Описание")
+    user = models.ForeignKey(User, on_delete=models.PROTECT, verbose_name="Автор")
+    category = models.ForeignKey(GoalCategory, on_delete=models.PROTECT, verbose_name="Категория")
     status = models.PositiveSmallIntegerField(
-        verbose_name="Статус", choices=Status.choices, default=Status.to_do
+        choices=Status.choices, default=Status.to_do, verbose_name="Статус"
     )
     priority = models.PositiveSmallIntegerField(
-        verbose_name="Приоритет", choices=Priority.choices, default=Priority.medium
+        choices=Priority.choices, default=Priority.medium, verbose_name="Приоритет"
     )
-    due_date = models.DateField(verbose_name="Дедлайн", null=True, blank=True)
+    due_date = models.DateField(null=True, blank=True, verbose_name="Дедлайн")
 
     def __str__(self):
-        return f"{self.title} ({self.get_status_display()})"
+        return f"{self.title}"
 
     class Meta:
         verbose_name = "Цель"
@@ -106,13 +102,12 @@ class Goal(BaseDateTime):
 
 class GoalComment(BaseDateTime):
     text = models.TextField(verbose_name="Текст")
-    user = models.ForeignKey(User, verbose_name="Автор", on_delete=models.PROTECT)
-    goal = models.ForeignKey(Goal, verbose_name="Цель", on_delete=models.CASCADE,
-        related_name='comments')
+    user = models.ForeignKey(User, on_delete=models.PROTECT, verbose_name="Автор")
+    goal = models.ForeignKey(Goal, on_delete=models.CASCADE, related_name='comments', verbose_name="Цель")
+
+    def __str__(self):
+        return f"Коммент от: {self.user.username}"
 
     class Meta:
         verbose_name = "Комментарий"
         verbose_name_plural = "Комментарии"
-
-    def __str__(self):
-        return f"Коммент от: {self.user.username}"

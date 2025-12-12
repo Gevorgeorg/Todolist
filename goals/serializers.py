@@ -1,61 +1,58 @@
 from django.db import transaction
-from flask_restx import ValidationError
+from django.db.models import QuerySet
 from rest_framework import serializers
-from .models import GoalCategory, Goal, GoalComment, Board, BoardParticipant
+from rest_framework.serializers import ValidationError
 from core.models import User
-from core.serializers import ProfileSerializer
+from rest_framework.request import Request
+from goals.models import GoalCategory, Goal, GoalComment, Board, BoardParticipant
+from goals.permissions import has_board_permissions
+
+
+def check_board_write_permission(user: User, board: Board) -> bool:
+    """Проверяет, имеет ли пользователь право на запись в доску (владелец/редактор)."""
+
+    return has_board_permissions(
+        user=user,
+        board=board,
+        required_roles=[BoardParticipant.Role.owner, BoardParticipant.Role.writer])
 
 
 class GoalCategorySerializer(serializers.ModelSerializer):
     user = serializers.HiddenField(default=serializers.CurrentUserDefault())
     board = serializers.PrimaryKeyRelatedField(
         queryset=Board.objects.filter(is_deleted=False),
-        required=True
-    )
+        required=True)
 
     class Meta:
         model = GoalCategory
         fields = "__all__"
         read_only_fields = ("id", "created", "updated", "user")
 
-    def validate_board(self, board):
+    def validate_board(self, board: Board) -> Board:
+        request: Request = self.context.get('request')
+        if not request:
+            return board
+
         if board.is_deleted:
             raise serializers.ValidationError("Доска удалена")
 
-        # ПРОВЕРЯЕМ ПРАВА!
-        request = self.context.get('request')
-        if request:
-            user = request.user
-
-            # Проверяем что пользователь владелец или редактор
-            has_permission = BoardParticipant.objects.filter(
-                user=user,
-                board=board,
-                role__in=[BoardParticipant.Role.owner, BoardParticipant.Role.writer],
-                board__is_deleted=False
-            ).exists()
-
-            if not has_permission:
-                raise serializers.ValidationError(
-                    "Только владелец или редактор могут создавать категории"
-                )
+        if not check_board_write_permission(request.user, board):
+            raise serializers.ValidationError("Только владелец или редактор могут создавать категории")
 
         return board
 
 
 class GoalCommentCreateSerializer(serializers.ModelSerializer):
-    """Простой сериализатор для создания комментариев"""
-
     class Meta:
         model = GoalComment
         fields = ['text', 'goal']
 
-    def create(self, validated_data):
-        """Добавляем пользователя из запроса"""
-        request = self.context.get('request')
+    def create(self, validated_data: dict) -> GoalComment:
+        request: Request = self.context.get('request')
         if request and request.user.is_authenticated:
             validated_data['user'] = request.user
         return super().create(validated_data)
+
 
 class GoalCommentSerializer(serializers.ModelSerializer):
     user_username = serializers.CharField(source='user.username', read_only=True)
@@ -66,52 +63,34 @@ class GoalCommentSerializer(serializers.ModelSerializer):
         fields = ["id", "text", "user", "user_username", "goal", "created", "updated"]
         read_only_fields = ("id", "created", "updated", "user", "user_username")
 
-    def get_user(self, obj):
-        """Возвращаем объект пользователя с id и username"""
+    def get_user(self, obj: GoalComment) -> dict:
         return {
             "id": obj.user.id,
             "username": obj.user.username
         }
 
 
-
-
 class GoalSerializer(serializers.ModelSerializer):
     user = serializers.HiddenField(default=serializers.CurrentUserDefault())
-
-    comments = GoalCommentSerializer(
-        many=True,
-        read_only=True
-    )
+    comments = GoalCommentSerializer(many=True, read_only=True)
 
     class Meta:
         model = Goal
         fields = "__all__"
         read_only_fields = ("id", "created", "updated", "user")
 
-    def validate_category(self, category):
+    def validate_category(self, category: GoalCategory) -> GoalCategory:
+        request: Request = self.context.get('request')
+        if not request:
+            return category
+
         if category.is_deleted:
             raise serializers.ValidationError("Категория удалена")
         if category.board.is_deleted:
             raise serializers.ValidationError("Доска категории удалена")
 
-        # ПРОВЕРЯЕМ ПРАВА!
-        request = self.context.get('request')
-        if request:
-            user = request.user
-
-            # Проверяем что пользователь владелец или редактор
-            has_permission = BoardParticipant.objects.filter(
-                user=user,
-                board=category.board,
-                role__in=[BoardParticipant.Role.owner, BoardParticipant.Role.writer],
-                board__is_deleted=False
-            ).exists()
-
-            if not has_permission:
-                raise serializers.ValidationError(
-                    "Только владелец или редактор могут создавать цели"
-                )
+        if not check_board_write_permission(request.user, category.board):
+            raise serializers.ValidationError("Только владелец или редактор могут создавать цели")
 
         return category
 
@@ -124,9 +103,9 @@ class BoardCreateSerializer(serializers.ModelSerializer):
         read_only_fields = ("id", "created", "updated")
         fields = "__all__"
 
-    def create(self, validated_data):
-        user = validated_data.pop("user")
-        board = Board.objects.create(**validated_data)
+    def create(self, validated_data: dict) -> Board:
+        user: User = validated_data.pop("user")
+        board: Board = Board.objects.create(**validated_data)
         BoardParticipant.objects.create(
             user=user, board=board, role=BoardParticipant.Role.owner
         )
@@ -134,11 +113,11 @@ class BoardCreateSerializer(serializers.ModelSerializer):
 
 
 class BoardParticipantSerializer(serializers.ModelSerializer):
-    role = serializers.ChoiceField(
+    role: int = serializers.ChoiceField(
         required=True,
-        choices=BoardParticipant.Role.choices[1:]  # без owner
+        choices=BoardParticipant.Role.choices[1:]
     )
-    user = serializers.SlugRelatedField(
+    user: User = serializers.SlugRelatedField(
         slug_field="username", queryset=User.objects.all()
     )
 
@@ -157,53 +136,43 @@ class BoardSerializer(serializers.ModelSerializer):
         fields = "__all__"
         read_only_fields = ("id", "created", "updated")
 
-    def update(self, instance, validated_data):
+    @transaction.atomic
+    def update(self, instance: Board, validated_data: dict) -> Board:
+        request = self.context.get('request')
+        if not request:
+            raise ValidationError("Запрос недоступен")
 
-        owner = self.context.get('request').user
+        owner: User = request.user
 
-        # Проверяем, что текущий пользователь - владелец
-        is_owner = instance.participants.filter(
-            user=owner,
-            role=BoardParticipant.Role.owner
-        ).exists()
-
-        if not is_owner:
+        if not instance.participants.filter(user=owner, role=BoardParticipant.Role.owner).exists():
             raise ValidationError("Только владелец может редактировать доску")
 
-        # Получаем участников
-        participants_data = validated_data.pop("participants", [])
+        participants_data: list = validated_data.pop("participants", [])
+        new_by_id: dict = {part["user"].id: part for part in participants_data}
+        old_participants: QuerySet = instance.participants.exclude(user=owner)
 
-        # Преобразуем в словарь
-        new_by_id = {part["user"].id: part for part in participants_data}
+        for old_participant in old_participants:
+            user_id: int = old_participant.user_id
+            if user_id not in new_by_id:
+                old_participant.delete()
+            else:
+                new_role = new_by_id[user_id]["role"]
+                if old_participant.role != new_role:
+                    old_participant.role = new_role
+                    old_participant.save()
+                new_by_id.pop(user_id)
 
-        # Получаем старых участников (кроме владельца)
-        old_participants = instance.participants.exclude(user=owner)
+        for new_part in new_by_id.values():
+            if new_part["role"] != BoardParticipant.Role.owner:
+                BoardParticipant.objects.create(
+                    board=instance,
+                    user=new_part["user"],
+                    role=new_part["role"]
+                )
 
-        with transaction.atomic():
-            # Обрабатываем старых участников
-            for old_participant in old_participants:
-                if old_participant.user_id not in new_by_id:
-                    old_participant.delete()
-                else:
-                    if old_participant.role != new_by_id[old_participant.user_id]["role"]:
-                        old_participant.role = new_by_id[old_participant.user_id]["role"]
-                        old_participant.save()
-                    new_by_id.pop(old_participant.user_id)
-
-            # Добавляем новых участников
-            for new_part in new_by_id.values():
-                # Проверяем, что не добавляем владельца
-                if new_part["role"] != BoardParticipant.Role.owner:
-                    BoardParticipant.objects.create(
-                        board=instance,
-                        user=new_part["user"],
-                        role=new_part["role"]
-                    )
-
-            # Обновляем заголовок
-            if 'title' in validated_data:
-                instance.title = validated_data["title"]
-                instance.save()
+        if 'title' in validated_data:
+            instance.title = validated_data.get("title")
+            instance.save()
 
         return instance
 

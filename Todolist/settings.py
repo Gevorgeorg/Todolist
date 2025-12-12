@@ -30,7 +30,7 @@ DATABASES = {
                       default=f"postgresql://myuser:mypassword@localhost:5432/mydb")
 }
 
-ALLOWED_HOSTS = ["*"]  # Для разработки
+ALLOWED_HOSTS = env.list('ALLOWED_HOSTS', default=['127.0.0.1', 'localhost'])
 
 
 TELEGRAM_BOT_TOKEN=env('TELEGRAM_BOT_TOKEN')
@@ -62,7 +62,7 @@ MIDDLEWARE = [
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'core.middleware.DisableCSRFMiddleware',
-    # 'django.middleware.csrf.CsrfViewMiddleware',
+    'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
@@ -89,8 +89,7 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'Todolist.wsgi.application'
 
-# Password validation
-# https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators
+
 
 AUTH_PASSWORD_VALIDATORS = [
     {
@@ -107,24 +106,23 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
-# Internationalization
-# https://docs.djangoproject.com/en/5.2/topics/i18n/
-
 LANGUAGE_CODE = 'en-us'
-
 TIME_ZONE = 'UTC'
-
 USE_I18N = True
-
 USE_TZ = True
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-CORS_ALLOW_ALL_ORIGINS = True
+CORS_ALLOWED_ORIGINS = env.list('CORS_ALLOWED_ORIGINS', default=[
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "http://89.169.156.104",
+])
+CORS_ALLOW_ALL_ORIGINS = False
 CORS_ALLOW_CREDENTIALS = True
 
 STATIC_URL = 'static/'
-STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')  # ← Добавь эту строку!
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 
 # Медиа файлы
 MEDIA_URL = 'media/'
@@ -143,6 +141,13 @@ REST_FRAMEWORK = {
         'django_filters.rest_framework.DjangoFilterBackend',
     ], 'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',}
 
+AUTHENTICATION_BACKENDS = (
+    'django.contrib.auth.backends.ModelBackend',
+    'social_core.backends.vk.VKOAuth2',
+
+)
+
+
 # Documentation
 SPECTACULAR_SETTINGS = {
     'TITLE': 'Ads board API',
@@ -156,7 +161,8 @@ SESSION_COOKIE_SAMESITE = 'Lax'
 SESSION_ENGINE = 'django.contrib.sessions.backends.db'
 SESSION_COOKIE_NAME = 'sessionid'
 
-BASE_URL = 'https://tg796x-217-73-118-237.ru.tuna.am'  # ← НОВЫЙ URL
+
+BASE_URL = env('BASE_URL', default='http://localhost:8000')# URL для ВК
 
 CSRF_COOKIE_SECURE = False
 CSRF_COOKIE_HTTPONLY = False
@@ -171,22 +177,14 @@ CSRF_TRUSTED_ORIGINS = [
     f'{BASE_URL}',
 ]
 
-AUTHENTICATION_BACKENDS = (
-    'django.contrib.auth.backends.ModelBackend',
-    'social_core.backends.vk.VKOAuth2',
 
-)
 
 SOCIAL_AUTH_URL_NAMESPACE = 'social'
 # VK OAuth2 настройки
-SOCIAL_AUTH_VK_OAUTH2_KEY = '54379750'  # ID приложения VK
-SOCIAL_AUTH_VK_OAUTH2_SECRET = 'R3GFWeZqkBl4X5rEKlHt'  # Защищенный ключ
+
 SOCIAL_AUTH_VK_OAUTH2_PROFILE_EXTRA_PARAMS = {
     'fields': 'id,first_name,last_name,email,photo_max'
 }
-
-VK_APP_ID = '54379750'  # Твой App ID из VK
-VK_APP_SECRET = 'R3GFWeZqkBl4X5rEKlHt'
 
 VK_API_VERSION = '5.199'
 VK_REDIRECT_URI = f'{BASE_URL}/core/vk-callback/'

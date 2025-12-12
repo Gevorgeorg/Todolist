@@ -46,7 +46,7 @@ jobs:
         ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no ubuntu@${{ secrets.SERVER_HOST }} "
           cd /home/ubuntu/todo-app
           cat > .env << 'EOF'
-          DEBUG=True
+          DEBUG=False
           SECRET_KEY='${{ secrets.DJANGO_SECRET_KEY }}'
           ALLOWED_HOSTS=localhost,127.0.0.1,api,frontend,${{ secrets.SERVER_HOST }}
           POSTGRES_USER=myuser
@@ -56,7 +56,6 @@ jobs:
           SOCIAL_AUTH_VK_OAUTH2_SECRET='${{ secrets.VK_SECRET }}'
           BASE_URL=http://${{ secrets.SERVER_HOST }}
           SOCIAL_AUTH_VK_OAUTH2_REDIRECT_URI=http://${{ secrets.SERVER_HOST }}/oauth/complete/vk-oauth2/
-          STATIC_ROOT=/app/staticfiles
           EOF
         "
 
@@ -77,7 +76,7 @@ jobs:
           docker-compose build --no-cache
           docker-compose up -d
           
-          echo '✅ Containers started!'
+          echo 'Containers started!'
         "
 
     - name: Check deployment status

@@ -30,8 +30,8 @@ class ProfileSerializer(serializers.ModelSerializer):
 
 
 class PasswordUpdateSerializer(serializers.Serializer):
-    old_password = serializers.CharField(required=True, write_only=True, verbose_name="старый пароль")
-    new_password = serializers.CharField(required=True, write_only=True, validators=[validate_password], verbose_name="новый пароль")
+    old_password = serializers.CharField(required=True, write_only=True)
+    new_password = serializers.CharField(required=True, write_only=True, validators=[validate_password])
 
     def validate_old_password(self, value: str) -> str:
         user: User = self.context['request'].user

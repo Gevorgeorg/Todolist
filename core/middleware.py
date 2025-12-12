@@ -3,8 +3,10 @@ class DisableCSRFMiddleware:
         self.get_response = get_response
 
     def __call__(self, request):
-        # Отключаем CSRF для ВСЕХ запросов
-        setattr(request, '_dont_enforce_csrf_checks', True)
+        if request.content_type == "application/json":
+            setattr(request, '_dont_enforce_csrf_checks', True)
+        if request.path.startswith(('/core/', '/goals/', '/bot/')):
+            setattr(request, '_dont_enforce_csrf_checks', True)
         response = self.get_response(request)
         return response
 
