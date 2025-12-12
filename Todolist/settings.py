@@ -32,7 +32,6 @@ DATABASES = {
 
 ALLOWED_HOSTS = env.list('ALLOWED_HOSTS', default=['127.0.0.1', 'localhost'])
 
-
 TELEGRAM_BOT_TOKEN=env('TELEGRAM_BOT_TOKEN')
 TG_CHAT_ID=env('TG_CHAT_ID')
 
