@@ -29,7 +29,7 @@ jobs:
 
     - name: Copy ALL project files
       run: |
-        # Копируем ВСЕ файлы из репозитория
+      
         rsync -avz -e "ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no" \
           --exclude='.git' \
           --exclude='.github' \
@@ -64,15 +64,15 @@ jobs:
         ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no ubuntu@${{ secrets.SERVER_HOST }} "
           cd /home/ubuntu/todo-app
           
-          echo '🚀 Building and starting containers...'
+          echo 'Building and starting containers...'
           
-          # Останавливаем старые контейнеры
+     
           docker-compose down 2>/dev/null || true
           
-          # Удаляем старые образы чтобы не копились
+       
           docker system prune -f 2>/dev/null || true
           
-          # Запускаем
+   
           docker-compose build --no-cache
           docker-compose up -d
           

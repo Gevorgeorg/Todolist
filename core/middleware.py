@@ -16,7 +16,7 @@ class SocialAuthAdminFixMiddleware:
         self.get_response = get_response
 
     def __call__(self, request):
-        # Если запрос к админке - отключаем social auth
+
         if request.path.startswith('/admin/'):
             request.session['social_auth_disabled'] = True
         else:
