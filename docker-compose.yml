@@ -1,4 +1,3 @@
-version: '3.8'
 
 services:
   frontend:
@@ -63,7 +62,7 @@ services:
 
   db:
     image: postgres:15-alpine
-    container_name: todo-postgres
+
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}

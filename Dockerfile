@@ -1,29 +1,38 @@
-FROM python:3.12-slim
+# Stage 1: Builder
+FROM python:3.12-slim AS builder
 
-# Системные зависимости
-RUN apt-get update && apt-get install -y \
-    gcc g++ libpq-dev curl \
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gcc g++ libpq-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Устанавливаем Poetry
-ENV POETRY_VERSION=2.0.1
+ENV POETRY_VERSION=2.0.1 \
+    POETRY_VIRTUALENVS_CREATE=false \
+    POETRY_NO_INTERACTION=1
+
 RUN pip install "poetry==$POETRY_VERSION"
-ENV POETRY_VIRTUALENVS_CREATE=false
-ENV POETRY_NO_INTERACTION=1
 
 WORKDIR /app
 
-# Зависимости
-COPY pyproject.toml ./
-RUN poetry lock --no-interaction && poetry install --no-interaction --no-ansi --no-root
+COPY poetry.lock pyproject.toml ./
 
-# Устанавливаем gunicorn и curl (для healthcheck)
-RUN pip install gunicorn
 
-# Копируем код
+RUN poetry install --no-interaction --no-ansi --only=main --no-root
+
+# Stage 2: Runtime
+FROM python:3.12-slim
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libpq5 libssl3 \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+COPY --from=builder /usr/local/lib/python3.12/site-packages /usr/local/lib/python3.12/site-packages
+
 COPY . .
 
-# Папки
+RUN pip install --no-cache-dir gunicorn
+
 RUN mkdir -p /app/staticfiles /app/media
 
 EXPOSE 8000
