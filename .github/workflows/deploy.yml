@@ -44,20 +44,22 @@ jobs:
       - name: Create .env file on server
         run: |
           ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no ubuntu@${{ secrets.SERVER_HOST }} "
-            cd /home/ubuntu/todo-app
-            cat > .env << EOF
-            DEBUG=False
-            SECRET_KEY=${{ secrets.SECRET_KEY }}
-            ALLOWED_HOSTS=localhost,127.0.0.1,api,frontend,${{ secrets.SERVER_HOST }}
-            POSTGRES_USER=myuser
-            POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}
-            POSTGRES_DB=todolist_db
-            SOCIAL_AUTH_VK_OAUTH2_KEY=54378867
-            SOCIAL_AUTH_VK_OAUTH2_SECRET='${{ secrets.VK_SECRET }}'
-            BASE_URL=http://${{ secrets.SERVER_HOST }}
-            DATABASE_URL=${{ secrets.DATABASE_URL }}
-            SOCIAL_AUTH_VK_OAUTH2_REDIRECT_URI=http://${{ secrets.SERVER_HOST }}/oauth/complete/vk-oauth2/
-            EOF
+            cd /home/ubuntu/todo-app &&
+            cat > .env << 'EOF'
+          DEBUG=False
+          SECRET_KEY=${{ secrets.SECRET_KEY }}
+          ALLOWED_HOSTS=localhost,127.0.0.1,api,frontend,${{ secrets.SERVER_HOST }}
+          POSTGRES_USER=myuser
+          POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}
+          POSTGRES_DB=todolist_db
+          DATABASE_URL=postgresql://myuser:${{ secrets.POSTGRES_PASSWORD }}@db:5432/todolist_db
+          SOCIAL_AUTH_VK_OAUTH2_KEY=54379750
+          SOCIAL_AUTH_VK_OAUTH2_SECRET=${{ secrets.SOCIAL_AUTH_VK_OAUTH2_SECRET }}
+          SOCIAL_AUTH_VK_OAUTH2_REDIRECT_URI=http://${{ secrets.SERVER_HOST }}/oauth/complete/vk-oauth2/
+          BASE_URL=http://${{ secrets.SERVER_HOST }}
+          TELEGRAM_BOT_TOKEN=${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TG_CHAT_ID=${{ secrets.TG_CHAT_ID }}
+          EOF
           "
 
       - name: Deploy application
