@@ -161,7 +161,7 @@ SESSION_ENGINE = 'django.contrib.sessions.backends.db'
 SESSION_COOKIE_NAME = 'sessionid'
 
 
-BASE_URL = env('BASE_URL', default='http://localhost:8000')# URL для ВК
+BASE_URL = env('BASE_URL', default='http://localhost:8000')
 
 CSRF_COOKIE_SECURE = False
 CSRF_COOKIE_HTTPONLY = False
@@ -175,7 +175,6 @@ CSRF_TRUSTED_ORIGINS = [
     "http://127.0.0.1:8000",
     f'{BASE_URL}',
 ]
-
 
 
 SOCIAL_AUTH_URL_NAMESPACE = 'social'

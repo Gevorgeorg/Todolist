@@ -9,85 +9,86 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v3
+      - name: Checkout code
+        uses: actions/checkout@v3
 
-    - name: Setup SSH
-      run: |
-        mkdir -p ~/.ssh
-        echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
-        chmod 600 ~/.ssh/deploy_key
-        ssh-keyscan -H ${{ secrets.SERVER_HOST }} >> ~/.ssh/known_hosts
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H ${{ secrets.SERVER_HOST }} >> ~/.ssh/known_hosts
 
-    - name: Clean server directory
-      run: |
-        ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no ubuntu@${{ secrets.SERVER_HOST }} "
-          cd /home/ubuntu
-          rm -rf todo-app/*
-          mkdir -p todo-app
-        "
+      - name: Clean server directory
+        run: |
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no ubuntu@${{ secrets.SERVER_HOST }} "
+            cd /home/ubuntu
+            rm -rf todo-app/*
+            mkdir -p todo-app
+          "
 
-    - name: Copy ALL project files
-      run: |
-      
-        rsync -avz -e "ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no" \
-          --exclude='.git' \
-          --exclude='.github' \
-          --exclude='.idea' \
-          --exclude='__pycache__' \
-          --exclude='*.pyc' \
-          --exclude='.venv' \
-          --exclude='node_modules' \
-          ./ \
-          ubuntu@${{ secrets.SERVER_HOST }}:/home/ubuntu/todo-app/
+      - name: Copy ALL project files
+        run: |
+          
+          rsync -avz -e "ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no" \
+            --exclude='.git' \
+            --exclude='.github' \
+            --exclude='.idea' \
+            --exclude='__pycache__' \
+            --exclude='*.pyc' \
+            --exclude='.venv' \
+            --exclude='node_modules' \
+            ./ \
+            ubuntu@${{ secrets.SERVER_HOST }}:/home/ubuntu/todo-app/
 
-    - name: Create .env file on server
-      run: |
-        ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no ubuntu@${{ secrets.SERVER_HOST }} "
-          cd /home/ubuntu/todo-app
-          cat > .env << 'EOF'
-          DEBUG=False
-          SECRET_KEY='${{ secrets.DJANGO_SECRET_KEY }}'
-          ALLOWED_HOSTS=localhost,127.0.0.1,api,frontend,${{ secrets.SERVER_HOST }}
-          POSTGRES_USER=myuser
-          POSTGRES_PASSWORD='${{ secrets.POSTGRES_PASSWORD }}'
-          POSTGRES_DB=todolist_db
-          SOCIAL_AUTH_VK_OAUTH2_KEY=54378867
-          SOCIAL_AUTH_VK_OAUTH2_SECRET='${{ secrets.VK_SECRET }}'
-          BASE_URL=http://${{ secrets.SERVER_HOST }}
-          SOCIAL_AUTH_VK_OAUTH2_REDIRECT_URI=http://${{ secrets.SERVER_HOST }}/oauth/complete/vk-oauth2/
-          EOF
-        "
+      - name: Create .env file on server
+        run: |
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no ubuntu@${{ secrets.SERVER_HOST }} "
+            cd /home/ubuntu/todo-app
+            cat > .env << 'EOF'
+            DEBUG=False
+            SECRET_KEY=${{ secrets.SECRET_KEY }}
+            ALLOWED_HOSTS=localhost,127.0.0.1,api,frontend,${{ secrets.SERVER_HOST }}
+            POSTGRES_USER=myuser
+            POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}
+            POSTGRES_DB=todolist_db
+            SOCIAL_AUTH_VK_OAUTH2_KEY=54378867
+            SOCIAL_AUTH_VK_OAUTH2_SECRET='${{ secrets.VK_SECRET }}'
+            BASE_URL=http://${{ secrets.SERVER_HOST }}
+            DATABASE_URL=${{ secrets.DATABASE_URL }}
+            SOCIAL_AUTH_VK_OAUTH2_REDIRECT_URI=http://${{ secrets.SERVER_HOST }}/oauth/complete/vk-oauth2/
+            EOF
+          "
 
-    - name: Deploy application
-      run: |
-        ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no ubuntu@${{ secrets.SERVER_HOST }} "
-          cd /home/ubuntu/todo-app
+      - name: Deploy application
+        run: |
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no ubuntu@${{ secrets.SERVER_HOST }} "
+            cd /home/ubuntu/todo-app
           
-          echo 'Building and starting containers...'
+            echo 'Building and starting containers...'
           
-     
-          docker-compose down 2>/dev/null || true
           
-       
-          docker system prune -f 2>/dev/null || true
+            docker-compose down 2>/dev/null || true
           
-   
-          docker-compose build --no-cache
-          docker-compose up -d
           
-          echo 'Containers started!'
-        "
+            docker system prune -f 2>/dev/null || true
+          
+          
+            docker-compose build --no-cache
+            docker-compose up -d
+          
+            echo 'Containers started!'
+          "
 
-    - name: Check deployment status
-      run: |
-        ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no ubuntu@${{ secrets.SERVER_HOST }} "
-          echo '=== Container Status ==='
-          docker-compose ps 2>/dev/null || echo 'docker-compose not found'
+      - name: Check deployment status
+        run: |
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no ubuntu@${{ secrets.SERVER_HOST }} "
+            echo '=== Container Status ==='
+            docker-compose ps 2>/dev/null || echo 'docker-compose not found'
           
-          echo ''
-          echo '=== Checking services ==='
-          sleep 5
-          curl -f http://localhost:80 && echo 'Frontend: OK' || echo 'Frontend: FAILED'
-          curl -f http://localhost:8000/core/signup && echo 'Backend: OK' || echo 'Backend: FAILED'
-        "
+            echo ''
+            echo '=== Checking services ==='
+            sleep 5
+            curl -f http://localhost:80 && echo 'Frontend: OK' || echo 'Frontend: FAILED'
+            curl -f http://localhost:8000/core/signup && echo 'Backend: OK' || echo 'Backend: FAILED'
+          "
