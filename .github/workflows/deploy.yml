@@ -45,7 +45,7 @@ jobs:
         run: |
           ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no ubuntu@${{ secrets.SERVER_HOST }} "
             cd /home/ubuntu/todo-app
-            cat > .env << 'EOF'
+            cat > .env << EOF
             DEBUG=False
             SECRET_KEY=${{ secrets.SECRET_KEY }}
             ALLOWED_HOSTS=localhost,127.0.0.1,api,frontend,${{ secrets.SERVER_HOST }}
