@@ -23,16 +23,14 @@ from django.conf.urls.static import static
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 
 urlpatterns = [
-    path('admin/', admin.site.urls),
-    path('oauth/', include("social_django.urls", namespace="social")),
-    path('core/', include('core.urls')),
+    path('admin/', admin.site.urls, name='admin'),
     path('schema/', SpectacularAPIView.as_view(), name='schema'),
     path('schema/swagger-ui/', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),
-    path("goals/", include("goals.urls")),
-    path('bot/', include('tgbot.urls')),
+    path('core/', include('core.urls'), name='core'),
+    path("goals/", include("goals.urls"), name='goals'),
+    path('bot/', include('tgbot.urls'), name='bot'),
+    path('oauth/', include("social_django.urls", namespace="social")),
 ]
-
-
 
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

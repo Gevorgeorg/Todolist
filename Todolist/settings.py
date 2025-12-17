@@ -60,12 +60,11 @@ MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
-    'core.middleware.DisableCSRFMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    'core.middleware.SocialAuthAdminFixMiddleware',
+    #'core.middleware.SocialAuthAdminFixMiddleware',
 ]
 
 ROOT_URLCONF = 'Todolist.urls'
@@ -116,6 +115,8 @@ CORS_ALLOWED_ORIGINS = env.list('CORS_ALLOWED_ORIGINS', default=[
     "http://localhost:3000",
     "http://127.0.0.1:3000",
     "http://89.169.156.104",
+    "http://localhost:4200",
+    "http://89.169.156.104",
 ])
 CORS_ALLOW_ALL_ORIGINS = False
 CORS_ALLOW_CREDENTIALS = True
@@ -141,8 +142,9 @@ REST_FRAMEWORK = {
     ], 'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',}
 
 AUTHENTICATION_BACKENDS = (
-    'django.contrib.auth.backends.ModelBackend',
     'social_core.backends.vk.VKOAuth2',
+    'django.contrib.auth.backends.ModelBackend',
+
 
 )
 
@@ -154,8 +156,7 @@ SPECTACULAR_SETTINGS = {
     'VERSION': '1.0.0'
 }
 
-SESSION_COOKIE_HTTPONLY = True
-SESSION_COOKIE_SECURE = False
+
 SESSION_COOKIE_SAMESITE = 'Lax'
 SESSION_ENGINE = 'django.contrib.sessions.backends.db'
 SESSION_COOKIE_NAME = 'sessionid'
@@ -163,8 +164,7 @@ SESSION_COOKIE_NAME = 'sessionid'
 
 BASE_URL = env('BASE_URL', default='http://localhost:8000')
 
-CSRF_COOKIE_SECURE = False
-CSRF_COOKIE_HTTPONLY = False
+
 CSRF_COOKIE_SAMESITE = 'Lax'
 CSRF_TRUSTED_ORIGINS = [
     "http://localhost:3000",
@@ -173,6 +173,8 @@ CSRF_TRUSTED_ORIGINS = [
 
     "http://localhost:8000",
     "http://127.0.0.1:8000",
+    "http://localhost:4200",
+    "http://89.169.156.104",
     f'{BASE_URL}',
 ]
 
@@ -206,6 +208,4 @@ SOCIAL_AUTH_PIPELINE = (
     'social_core.pipeline.social_auth.load_extra_data',
     'social_core.pipeline.user.user_details',
 )
-
-# Дополнительные настройки
 SOCIAL_AUTH_ADMIN_USER_SEARCH_FIELDS = ['username', 'first_name', 'last_name', 'email']
