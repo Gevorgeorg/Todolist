@@ -20,7 +20,7 @@ Thumbs.db
 *.log
 *.bak
 *.tmp
-poetry.lock
+
 Dockerfile
 docker-compose.yml
 .dockerignore

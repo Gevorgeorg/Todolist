@@ -53,7 +53,6 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    # 'core.middleware.SocialAuthAdminFixMiddleware',
 ]
 
 TEMPLATES = [
@@ -137,39 +136,38 @@ SESSION_COOKIE_SAMESITE = 'Lax'
 SESSION_ENGINE = 'django.contrib.sessions.backends.db'
 SESSION_COOKIE_NAME = 'sessionid'
 
-BASE_URL = env('BASE_URL', default='http://localhost:8000')  # для social авторизации вк
-
 # CSRF
 CSRF_COOKIE_SAMESITE = 'Lax'
 CSRF_TRUSTED_ORIGINS = [
     "http://localhost:3000",
     "http://127.0.0.1:3000",
     "http://localhost:8080",
-
     "http://localhost:8000",
     "http://127.0.0.1:8000",
     "http://localhost:4200",
     "http://89.169.156.104",
-    f'{BASE_URL}',
+    f'{env('BASE_URL')}',
 ]
 
 TELEGRAM_BOT_TOKEN = env('TELEGRAM_BOT_TOKEN')
 TG_CHAT_ID = env('TG_CHAT_ID')
 
 # VK OAuth2 настройки
+SOCIAL_AUTH_VK_OAUTH2_KEY = env('SOCIAL_AUTH_VK_OAUTH2_KEY')
+SOCIAL_AUTH_VK_OAUTH2_SECRET = env('SOCIAL_AUTH_VK_OAUTH2_SECRET')
+SOCIAL_AUTH_VK_OAUTH2_REDIRECT_URI = f"{env('BASE_URL')}/oauth/complete/vk-oauth2/"
+SOCIAL_AUTH_LOGIN_REDIRECT_URL = f"{env('BASE_URL')}/core/social-success/"
 SOCIAL_AUTH_VK_OAUTH2_PROFILE_EXTRA_PARAMS = {
     'fields': 'id,first_name,last_name,email,photo_max'
 }
 VK_API_VERSION = '5.199'
-VK_REDIRECT_URI = f'{BASE_URL}/core/vk-callback/'
+VK_REDIRECT_URI = f'{env('BASE_URL')}/core/vk-callback/'
 # Настройки social auth
 SOCIAL_AUTH_URL_NAMESPACE = 'social'
 SOCIAL_AUTH_POSTGRES_JSONFIELD = True
 
 SOCIAL_AUTH_USER_MODEL = 'core.User'
-SOCIAL_AUTH_VK_OAUTH2_REDIRECT_URI = f'{BASE_URL}/oauth/complete/vk-oauth2/'
-SOCIAL_AUTH_LOGIN_REDIRECT_URL = f'{BASE_URL}/core/social-success/'
-SOCIAL_AUTH_LOGIN_ERROR_URL = f'{BASE_URL}/core/social-error/'
+SOCIAL_AUTH_LOGIN_ERROR_URL = f'{env('BASE_URL')}/core/social-error/'
 SOCIAL_AUTH_VK_OAUTH2_SCOPE = ['email']
 # Конвейер обработки пользователя
 SOCIAL_AUTH_PIPELINE = (
