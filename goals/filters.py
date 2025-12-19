@@ -5,15 +5,12 @@ from goals.models import Goal, GoalComment, GoalCategory
 
 
 class GoalFilter(django_filters.FilterSet):
-    category = django_filters.NumberFilter(field_name='category__id')
-    category__in = django_filters.BaseInFilter(field_name='category__id', lookup_expr='in')
 
     priority = django_filters.NumberFilter(field_name='priority')
     priority__in = django_filters.BaseInFilter(field_name='priority', lookup_expr='in')
 
     status = django_filters.NumberFilter(field_name='status')
     status__in = django_filters.BaseInFilter(field_name='status', lookup_expr='in')
-
 
     due_date__lte = django_filters.DateFilter(
         field_name='due_date',
@@ -34,7 +31,7 @@ class GoalFilter(django_filters.FilterSet):
         model = Goal
         fields = ['category', 'priority', 'status', 'board']
 
-    def filter_search(self, queryset:QuerySet, value: str) -> QuerySet:
+    def filter_search(self, queryset: QuerySet, name: str, value: str) -> QuerySet:
         return queryset.filter(
             models.Q(title__icontains=value) |
             models.Q(description__icontains=value)

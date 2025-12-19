@@ -14,7 +14,7 @@ from goals.serializers import (GoalCategorySerializer,
                                BoardCreateSerializer)
 from goals.models import Board, BoardParticipant, Goal, GoalCategory, GoalComment, Status
 from goals.permissions import BoardPermission
-from goals.filters import GoalFilter, GoalCommentFilter
+from goals.filters import GoalFilter, GoalCommentFilter, GoalCategoryFilter
 from core.models import User
 
 
@@ -36,7 +36,8 @@ class GoalCategoryListView(ListAPIView):
     permission_classes = [permissions.IsAuthenticated]
     serializer_class = GoalCategorySerializer
     pagination_class = LimitOffsetPagination
-    filter_backends = [filters.OrderingFilter, filters.SearchFilter]
+    filter_backends = [DjangoFilterBackend, filters.OrderingFilter, filters.SearchFilter]
+    filterset_class = GoalCategoryFilter
     ordering_fields = ["title", "created"]
     ordering = ["title"]
     search_fields = ["title"]
@@ -109,6 +110,7 @@ class GoalDetailView(RetrieveUpdateDestroyAPIView):
     def perform_destroy(self, instance):
         instance.status = Status.archived
         instance.save(update_fields=['status'])
+
 
 class GoalCommentCreateView(CreateAPIView):
     serializer_class = GoalCommentCreateSerializer

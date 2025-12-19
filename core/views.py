@@ -11,7 +11,6 @@ from .serializers import (SignupSerializer,
 
 
 class LoginView(APIView):
-    permission_classes = [permissions.AllowAny]
 
     def post(self, request: Request) -> Response:
         user: User = authenticate(request, **request.data)
@@ -38,7 +37,6 @@ class ProfileView(RetrieveUpdateDestroyAPIView):
 
 
 class SignupView(CreateAPIView):
-    permission_classes = [permissions.AllowAny]
     serializer_class = SignupSerializer
 
 

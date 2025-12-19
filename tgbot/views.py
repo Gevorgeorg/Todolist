@@ -35,7 +35,6 @@ class TgUserVerifyView(GenericAPIView):
             return Response({
                 "success": True,
                 "telegram_user": {
-                    "id": tg_user.telegram_user_id,
                     "username": tg_user.username,
                     "chat_id": tg_user.telegram_chat_id
                 }

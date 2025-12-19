@@ -18,7 +18,7 @@ class UserAdmin(BaseUserAdmin):
         }),
         (_('Important dates'), {
             'fields': ('last_login', 'date_joined'),
-            'classes': ('collapse',),  # Сворачиваемый раздел
+            'classes': ('collapse',),
         }),
     )
 

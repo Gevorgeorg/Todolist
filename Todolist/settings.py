@@ -18,23 +18,14 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 env = environ.Env(
     DEBUG=(bool, False),
-    SECRET_KEY=(str, 'your-secret-key-here'),
+    SECRET_KEY=(str, 'secret-key-here'),
 )
 
 environ.Env.read_env(os.path.join(BASE_DIR, '.env'))
 
 DEBUG = env('DEBUG')
 SECRET_KEY = env('SECRET_KEY')
-DATABASES = {
-    'default': env.db('DATABASE_URL',
-                      default=f"postgresql://myuser:mypassword@localhost:5432/mydb")
-}
-
 ALLOWED_HOSTS = env.list('ALLOWED_HOSTS', default=['127.0.0.1', 'localhost'])
-
-TELEGRAM_BOT_TOKEN=env('TELEGRAM_BOT_TOKEN')
-TG_CHAT_ID=env('TG_CHAT_ID')
-
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -53,8 +44,6 @@ INSTALLED_APPS = [
     'tgbot',
 ]
 
-AUTH_USER_MODEL = 'core.User'
-
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
@@ -64,10 +53,8 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    #'core.middleware.SocialAuthAdminFixMiddleware',
+    # 'core.middleware.SocialAuthAdminFixMiddleware',
 ]
-
-ROOT_URLCONF = 'Todolist.urls'
 
 TEMPLATES = [
     {
@@ -84,11 +71,14 @@ TEMPLATES = [
         },
     },
 ]
+ROOT_URLCONF = 'Todolist.urls'
 
 WSGI_APPLICATION = 'Todolist.wsgi.application'
 
+DATABASES = {'default': env.db('DATABASE_URL',
+                               default=f"postgresql://myuser:mypassword@localhost:5432/mydb")}
 
-
+AUTH_USER_MODEL = 'core.User'
 AUTH_PASSWORD_VALIDATORS = [
     {
         'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
@@ -104,6 +94,7 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
+# Internationalization
 LANGUAGE_CODE = 'en-us'
 TIME_ZONE = 'UTC'
 USE_I18N = True
@@ -111,6 +102,13 @@ USE_TZ = True
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
+# Static & Media files
+STATIC_URL = 'static/'
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
+MEDIA_URL = 'media/'
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+
+# CORS
 CORS_ALLOWED_ORIGINS = env.list('CORS_ALLOWED_ORIGINS', default=[
     "http://localhost:3000",
     "http://127.0.0.1:3000",
@@ -118,15 +116,7 @@ CORS_ALLOWED_ORIGINS = env.list('CORS_ALLOWED_ORIGINS', default=[
     "http://localhost:4200",
     "http://89.169.156.104",
 ])
-CORS_ALLOW_ALL_ORIGINS = False
 CORS_ALLOW_CREDENTIALS = True
-
-STATIC_URL = 'static/'
-STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
-
-# Медиа файлы
-MEDIA_URL = 'media/'
-MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
 REST_FRAMEWORK = {
 
@@ -134,37 +124,22 @@ REST_FRAMEWORK = {
         'rest_framework.authentication.BasicAuthentication',
         'rest_framework.authentication.SessionAuthentication',
     ],
-    'DEFAULT_PERMISSION_CLASSES': [
-        'rest_framework.permissions.IsAuthenticated',
-    ],
+
     'DEFAULT_FILTER_BACKENDS': [
         'django_filters.rest_framework.DjangoFilterBackend',
-    ], 'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',}
+    ], 'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema', }
 
 AUTHENTICATION_BACKENDS = (
     'social_core.backends.vk.VKOAuth2',
-    'django.contrib.auth.backends.ModelBackend',
-
-
-)
-
-
-# Documentation
-SPECTACULAR_SETTINGS = {
-    'TITLE': 'Ads board API',
-    'DESCRIPTION': 'Ads board API',
-    'VERSION': '1.0.0'
-}
-
+    'django.contrib.auth.backends.ModelBackend',)
 
 SESSION_COOKIE_SAMESITE = 'Lax'
 SESSION_ENGINE = 'django.contrib.sessions.backends.db'
 SESSION_COOKIE_NAME = 'sessionid'
 
+BASE_URL = env('BASE_URL', default='http://localhost:8000')  # для social авторизации вк
 
-BASE_URL = env('BASE_URL', default='http://localhost:8000')
-
-
+# CSRF
 CSRF_COOKIE_SAMESITE = 'Lax'
 CSRF_TRUSTED_ORIGINS = [
     "http://localhost:3000",
@@ -178,17 +153,17 @@ CSRF_TRUSTED_ORIGINS = [
     f'{BASE_URL}',
 ]
 
+TELEGRAM_BOT_TOKEN = env('TELEGRAM_BOT_TOKEN')
+TG_CHAT_ID = env('TG_CHAT_ID')
 
-SOCIAL_AUTH_URL_NAMESPACE = 'social'
 # VK OAuth2 настройки
-
 SOCIAL_AUTH_VK_OAUTH2_PROFILE_EXTRA_PARAMS = {
     'fields': 'id,first_name,last_name,email,photo_max'
 }
-
 VK_API_VERSION = '5.199'
 VK_REDIRECT_URI = f'{BASE_URL}/core/vk-callback/'
 # Настройки social auth
+SOCIAL_AUTH_URL_NAMESPACE = 'social'
 SOCIAL_AUTH_POSTGRES_JSONFIELD = True
 
 SOCIAL_AUTH_USER_MODEL = 'core.User'
@@ -209,3 +184,10 @@ SOCIAL_AUTH_PIPELINE = (
     'social_core.pipeline.user.user_details',
 )
 SOCIAL_AUTH_ADMIN_USER_SEARCH_FIELDS = ['username', 'first_name', 'last_name', 'email']
+
+# Documentation
+SPECTACULAR_SETTINGS = {
+    'TITLE': 'Ads board API',
+    'DESCRIPTION': 'Ads board API',
+    'VERSION': '1.0.0'
+}

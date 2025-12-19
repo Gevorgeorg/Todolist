@@ -149,3 +149,43 @@ def test_update_password_wrong_old(api_client: APIClient, user: User) -> None:
     )
     assert response.status_code == 400
     assert "old_password" in response.data
+
+@pytest.mark.django_db
+def test_signup_weak_password(api_client: APIClient) -> None:
+    """Тестирует регистрацию с ненадёжным паролем"""
+
+    response = api_client.post(
+        "/core/signup",
+        {
+            "username": "user",
+            "email": "user@mail.ru",
+            "password": "123",
+            "password_repeat": "123",
+            "first_name": "user",
+            "last_name": "user"
+        },
+        format="json"
+    )
+    assert response.status_code == 400
+    assert "password" in response.data
+    assert not User.objects.filter(username="user").exists()
+
+@pytest.mark.django_db
+def test_signup_password_mismatch(api_client: APIClient) -> None:
+    """Тестирует регистрацию с несовпадающими паролями"""
+
+    response = api_client.post(
+        "/core/signup",
+        {
+            "username": "user",
+            "email": "user@mail.ru",
+            "password": "password123!",
+            "password_repeat": "qwerty1234u5",
+            "first_name": "user",
+            "last_name": "user"
+        },
+        format="json"
+    )
+    assert response.status_code == 400
+    assert "password_repeat" in response.data or "non_field_errors" in response.data
+    assert not User.objects.filter(username="user").exists()
