@@ -155,7 +155,7 @@ TG_CHAT_ID = env('TG_CHAT_ID')
 # VK OAuth2 настройки
 SOCIAL_AUTH_VK_OAUTH2_KEY = env('SOCIAL_AUTH_VK_OAUTH2_KEY')
 SOCIAL_AUTH_VK_OAUTH2_SECRET = env('SOCIAL_AUTH_VK_OAUTH2_SECRET')
-SOCIAL_AUTH_VK_OAUTH2_REDIRECT_URI = f"{env('BASE_URL')}/oauth/complete/vk-oauth2/"
+
 SOCIAL_AUTH_LOGIN_REDIRECT_URL = f"{env('BASE_URL')}/core/social-success/"
 SOCIAL_AUTH_VK_OAUTH2_PROFILE_EXTRA_PARAMS = {
     'fields': 'id,first_name,last_name,email,photo_max'
@@ -165,10 +165,9 @@ VK_REDIRECT_URI = f'{env('BASE_URL')}/core/vk-callback/'
 # Настройки social auth
 SOCIAL_AUTH_URL_NAMESPACE = 'social'
 SOCIAL_AUTH_POSTGRES_JSONFIELD = True
-
 SOCIAL_AUTH_USER_MODEL = 'core.User'
 SOCIAL_AUTH_LOGIN_ERROR_URL = f'{env('BASE_URL')}/core/social-error/'
-SOCIAL_AUTH_VK_OAUTH2_SCOPE = ['email']
+SOCIAL_AUTH_VK_OAUTH2_SCOPE = []
 # Конвейер обработки пользователя
 SOCIAL_AUTH_PIPELINE = (
     'social_core.pipeline.social_auth.social_details',
